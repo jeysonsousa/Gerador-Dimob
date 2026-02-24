@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador DIMOB Oficial</title>
+    <title>Gerador DIMOB Definitivo</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: auto; background-color: #f0f2f5; }
@@ -25,8 +25,8 @@
 <body>
 
     <div class="container">
-        <h1>Gerador DIMOB Definitivo</h1>
-        <p>Preencha os dados da administradora e suba a planilha de locatários.</p>
+        <h1>Gerador DIMOB Absoluto</h1>
+        <p>Preencha os dados da administradora e carregue a folha de cálculo de locatários.</p>
         
         <div class="form-grid">
             <div class="form-group">
@@ -34,7 +34,7 @@
                 <input type="number" id="inputAno" value="2024" min="2000" max="2099">
             </div>
             <div class="form-group">
-                <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
+                <label for="inputCnpj">NIF/CNPJ da Empresa Declarante:</label>
                 <input type="text" id="inputCnpj" placeholder="Apenas números (14 dígitos)" maxlength="14">
             </div>
             <div class="form-group full-width">
@@ -52,7 +52,7 @@
         </div>
 
         <div class="upload-section">
-            <label style="font-size: 16px; color: #1a73e8;">Selecione a Planilha (.xlsx)</label>
+            <label style="font-size: 16px; color: #1a73e8;">Selecione o Ficheiro (.xlsx)</label>
             <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
         </div>
 
@@ -115,7 +115,7 @@
                     
                     gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw, cpfRespRaw, enderecoRaw);
                 } catch (error) {
-                    exibirMensagem('Erro ao ler a planilha.', 'erro');
+                    exibirMensagem('Erro ao ler a folha de cálculo.', 'erro');
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -130,7 +130,7 @@
             
             let conteudoTxt = "";
 
-            // HEADER (T00) Clonado exatamente do seu modelo de sucesso
+            // HEADER (T00)
             conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
 
             // DECLARANTE (R01)
@@ -148,11 +148,16 @@
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
                 const cpfCnpjLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']).padEnd(14, ' ');
                 const nomeLocatario = formatarTexto(linha['NOME_LOCATARIO'], 60);
+                
+                // A PEÇA QUE FALTAVA: 6 espaços para o Número do Contrato
+                const numContrato = formatarTexto(linha['NUM_CONTRATO'] || '', 6);
+                
                 const dataContrato = formatarTexto(linha['DATA_CONTRATO'], 8);
                 
                 const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
                 let valoresFinanceiros = "";
 
+                // Valores com 14 dígitos exatos
                 meses.forEach(mes => {
                     valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
                     valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 14);
@@ -166,7 +171,7 @@
                 const uf = formatarTexto(linha['UF'] || ufPadrao, 2);
                 const fillerR02 = " ".repeat(10);
 
-                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
+                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${numContrato}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
                 
                 conteudoTxt += r02 + "\r\n"; 
             });
@@ -174,7 +179,7 @@
             // TRAILER (T9)
             conteudoTxt += "T9\r\n";
 
-            // A MÁGICA FINAL: Força a criação de um byte array ASCII puro (sem interferência de formato Web/UTF-8)
+            // Codificação em Bytes (Evita que o navegador insira caracteres UTF-8 invisíveis que causam erro no validador)
             const byteArray = new Uint8Array(conteudoTxt.length);
             for (let i = 0; i < conteudoTxt.length; i++) {
                 byteArray[i] = conteudoTxt.charCodeAt(i) & 0xFF;
@@ -184,12 +189,12 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_RESOLVIDA_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_FINAL_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Gerado!</strong> Este arquivo é blindado contra o navegador. Envie para o PGD.', 'sucesso');
+            exibirMensagem('<strong>Ficheiro gerado!</strong> O problema do número do contrato foi resolvido. Pode testar a validação.', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
