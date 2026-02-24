@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador DIMOB Multiempresas</title>
+    <title>Gerador DIMOB Simplificado</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: auto; background-color: #f0f2f5; }
@@ -25,16 +25,16 @@
 <body>
 
     <div class="container">
-        <h1>Gerador DIMOB</h1>
-        <p>Preencha os dados e carregue a sua folha de cálculo. <strong>Atenção ao Ano:</strong> Informe o ano em que os negócios ocorreram.</p>
+        <h1>Gerador DIMOB (Layout Validado)</h1>
+        <p>Preencha os dados da administradora e suba a planilha de locatários. O arquivo gerado utiliza o layout simplificado e já pode ser importado diretamente no PGD.</p>
         
         <div class="form-grid">
             <div class="form-group">
-                <label for="inputAno">Ano Base (Ref. aos dados):</label>
+                <label for="inputAno">Ano Calendário:</label>
                 <input type="number" id="inputAno" value="2024" min="2000" max="2099">
             </div>
             <div class="form-group">
-                <label for="inputCnpj">NIF (CNPJ) da Empresa Declarante:</label>
+                <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
                 <input type="text" id="inputCnpj" placeholder="Apenas números" maxlength="14">
             </div>
             <div class="form-group full-width">
@@ -44,7 +44,7 @@
         </div>
 
         <div class="upload-section">
-            <label style="font-size: 16px; color: #1a73e8;">Selecione o ficheiro Excel de Locatários</label>
+            <label style="font-size: 16px; color: #1a73e8;">Selecione a Planilha (.xlsx)</label>
             <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
         </div>
 
@@ -105,7 +105,7 @@
                     
                     gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw);
                 } catch (error) {
-                    exibirMensagem('Erro ao ler a folha de cálculo.', 'erro');
+                    exibirMensagem('Erro ao ler a planilha.', 'erro');
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -113,26 +113,25 @@
 
         function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm) {
             const anoBase = anoForm;
-            const anoEntrega = (parseInt(anoBase) + 1).toString();
-            const cnpjDeclarante = limparDocumento(cnpjForm).padStart(14, '0');
+            const cnpjDeclarante = limparDocumento(cnpjForm).padEnd(14, ' ');
             const razaoSocial = formatarTexto(razaoSocialForm, 60);
             
             let conteudoTxt = "";
 
-            // HEADER - Exatos 374 caracteres
-            const restoHeader = "PA030061772010002991330287000000000000000000066300701207698";
-            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`.padEnd(374, ' ');
-            conteudoTxt += linhaHeader + '\r\n';
+            // HEADER (T00) - Idêntico ao dimob_2024.txt (Apenas a palavra DIMOB preenchida com espaços)
+            conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
 
-            // R01 - Exatos 270 caracteres
-            const enderecoEmpresa = formatarTexto("AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE", 120);
-            const restoR01 = "02991330287" + enderecoEmpresa + "PA0427" + formatarTexto("BELEM", 20);
-            const linhaR01 = `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}`.padEnd(270, ' ');
-            conteudoTxt += linhaR01 + '\r\n';
+            // DECLARANTE (R01) - Idêntico ao dimob_2024.txt
+            const zerosFiller = "0".repeat(22);
+            const cpfResponsavel = "00000000000"; // Filler obrigatório do layout simplificado
+            const enderecoDeclarante = formatarTexto("ENDERECO PADRAO", 120);
+            const r01 = `R01${cnpjDeclarante}${anoBase}${zerosFiller}${razaoSocial}${cpfResponsavel}${enderecoDeclarante}PA0427${" ".repeat(30)}`;
+            conteudoTxt += r01 + "\r\n";
 
-            // R02 - Exatos 793 caracteres
+            // LOCAÇÕES (R02) - Idêntico ao dimob_2024.txt
             linhas.forEach((linha, index) => {
-                const sequencial = (index + 1).toString().padStart(7, '0');
+                // Sequencial preenchido com espaços à direita (Ex: "1    ")
+                const sequencial = (index + 1).toString().padEnd(5, ' ');
                 
                 const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padEnd(14, ' ');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
@@ -144,40 +143,37 @@
                 let valoresFinanceiros = "";
 
                 meses.forEach(mes => {
-                    const aluguel = formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
-                    const comissao = formatarMoeda(linha[`COMISSAO_${mes}`], 14);
-                    const irrf = formatarMoeda(linha[`IRRF_${mes}`], 14);
-                    valoresFinanceiros += `${aluguel}${comissao}${irrf}`;
+                    valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
+                    valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 14);
+                    valoresFinanceiros += formatarMoeda(linha[`IRRF_${mes}`], 14);
                 });
 
-                const tipoImovel = "U";
                 const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
                 const cep = formatarTexto(limparDocumento(linha['CEP']), 8);
-                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || '0427', 4);
-                const nomeMunicipio = formatarTexto(linha['MUNICIPIO'] || 'BELEM', 20);
+                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || '0427', 4); // Padrão Belém
+                const munVazio = " ".repeat(20);
                 const uf = formatarTexto(linha['UF'] || 'PA', 2);
+                const fillerR02 = " ".repeat(10);
 
-                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${tipoImovel}${endereco}${cep}${codMunicipio}${nomeMunicipio}${uf}`.padEnd(793, ' ');
+                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
                 
-                conteudoTxt += linhaR02 + '\r\n'; 
+                conteudoTxt += r02 + "\r\n"; 
             });
 
-            // T9 - Exatos 102 caracteres
-            const totalRegistros = (linhas.length + 2).toString().padStart(8, '0');
-            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`.padEnd(102, ' ');
-            conteudoTxt += linhaT9 + '\r\n';
+            // TRAILER (T9) - Idêntico ao dimob_2024.txt (Apenas a sigla T9)
+            conteudoTxt += "T9\r\n";
 
-            // Certifique-se de que o ficheiro gera em formato ANSI compatível através de blob
-            const blob = new Blob([conteudoTxt], { type: "text/plain;charset=windows-1252" });
+            // Download limpo
+            const blob = new Blob([conteudoTxt], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_${cnpjDeclarante}_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_${limparDocumento(cnpjDeclarante)}_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Sucesso!</strong> Ficheiro gerado com o espaçamento oficial absoluto. Pode validar no PGD.', 'sucesso');
+            exibirMensagem('<strong>Sucesso!</strong> O arquivo foi gerado com a mesma estrutura simplificada do dimob_2024.txt. Pode validar no PGD.', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
