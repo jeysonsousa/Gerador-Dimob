@@ -1,23 +1,33 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador DIMOB Definitivo</title>
+    <title>Auditor e Gerador DIMOB</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: auto; background-color: #f0f2f5; }
+        body { font-family: Arial, sans-serif; padding: 30px; margin: auto; background-color: #f4f6f9; color: #333; }
         h1 { color: #1a73e8; margin-bottom: 5px; }
-        p { color: #555; margin-bottom: 25px; line-height: 1.5; }
-        .container { border: 1px solid #ccc; padding: 30px; border-radius: 8px; background: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { border: 1px solid #ccc; padding: 30px; border-radius: 8px; background: #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
         .form-group { display: flex; flex-direction: column; }
         .form-group.full-width { grid-column: span 2; }
-        label { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 14px; }
         input[type="text"], input[type="number"] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        .upload-section { background-color: #f8f9fa; border: 2px dashed #abb8c3; padding: 20px; border-radius: 6px; text-align: center; }
+        .upload-section { background-color: #eef2f6; border: 2px dashed #90a4ae; padding: 20px; border-radius: 6px; text-align: center; cursor: pointer;}
         input[type="file"] { margin: 10px auto; display: block; }
-        #mensagem { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 14px; line-height: 1.5; }
+        
+        /* Estilos da Tabela de Preview */
+        #previewArea { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #1a73e8; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .alerta-vazio { color: #d32f2f; font-weight: bold; }
+        
+        .btn-gerar { background-color: #2e7d32; color: white; padding: 15px 25px; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.3s;}
+        .btn-gerar:hover { background-color: #1b5e20; }
+        #mensagem { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 14px; }
         .erro { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
         .sucesso { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
     </style>
@@ -25,8 +35,8 @@
 <body>
 
     <div class="container">
-        <h1>Gerador DIMOB Absoluto</h1>
-        <p>Preencha os dados da administradora e carregue a folha de cálculo de locatários.</p>
+        <h1>Auditor DIMOB</h1>
+        <p>Preencha os dados e suba a planilha. Uma prévia será gerada para sua conferência antes de criar o arquivo TXT.</p>
         
         <div class="form-grid">
             <div class="form-group">
@@ -34,32 +44,61 @@
                 <input type="number" id="inputAno" value="2024" min="2000" max="2099">
             </div>
             <div class="form-group">
-                <label for="inputCnpj">NIF/CNPJ da Empresa Declarante:</label>
-                <input type="text" id="inputCnpj" placeholder="Apenas números (14 dígitos)" maxlength="14">
+                <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
+                <input type="text" id="inputCnpj" placeholder="14 dígitos" maxlength="14">
             </div>
             <div class="form-group full-width">
                 <label for="inputRazaoSocial">Razão Social da Empresa Declarante:</label>
                 <input type="text" id="inputRazaoSocial" placeholder="Ex: DMD EMPREENDIMENTOS LTDA" maxlength="60">
             </div>
             <div class="form-group">
-                <label for="inputCpfResp">CPF do Responsável:</label>
-                <input type="text" id="inputCpfResp" placeholder="Apenas números (11 dígitos)" maxlength="11">
+                <label for="inputCpfResp">CPF do Responsável (Obrigatório PGD):</label>
+                <input type="text" id="inputCpfResp" placeholder="11 dígitos" maxlength="11">
             </div>
             <div class="form-group">
-                <label for="inputEndereco">Endereço Completo da Empresa:</label>
+                <label for="inputEndereco">Endereço da Empresa (Obrigatório PGD):</label>
                 <input type="text" id="inputEndereco" placeholder="Rua, Número, Bairro" maxlength="120">
             </div>
         </div>
 
         <div class="upload-section">
-            <label style="font-size: 16px; color: #1a73e8;">Selecione o Ficheiro (.xlsx)</label>
+            <label style="font-size: 16px; color: #1a73e8; font-weight: bold;">Selecione a Planilha (.xlsx)</label>
             <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
         </div>
 
         <div id="mensagem"></div>
     </div>
 
+    <div class="container" id="previewArea">
+        <h2 style="color: #1a73e8;">Prévia dos Dados Lidos (Auditoria)</h2>
+        <p>Verifique se não há campos em branco marcados em vermelho. Se tudo estiver correto, clique no botão ao final da página.</p>
+        
+        <div style="overflow-x: auto;">
+            <table id="tabelaPreview">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>CPF/CNPJ Locador</th>
+                        <th>Nome Locador</th>
+                        <th>CPF/CNPJ Locatário</th>
+                        <th>Nome Locatário</th>
+                        <th>Nº Contrato</th>
+                        <th>Data Contrato</th>
+                        <th>Endereço Imóvel</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabela">
+                    </tbody>
+            </table>
+        </div>
+
+        <button class="btn-gerar" id="btnGerarTxt">Tudo certo! Baixar Arquivo TXT (DIMOB)</button>
+    </div>
+
     <script>
+        // Variável global para guardar os dados lidos do Excel e aguardar o clique do botão
+        let dadosGlobaisPlanilha = [];
+
         const limparDocumento = (doc) => {
             if (!doc) return '';
             return doc.toString().replace(/\D/g, '');
@@ -87,12 +126,22 @@
             div.innerHTML = html;
         };
 
+        const checarVazio = (valor) => {
+            if (!valor || valor.toString().trim() === '') {
+                return `<span class="alerta-vazio">NÃO INFORMADO</span>`;
+            }
+            return valor;
+        };
+
+        // EVENTO 1: LER PLANILHA E GERAR A PREVIEW NA TELA
         document.getElementById('uploadPlanilha').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
             document.getElementById('mensagem').style.display = 'none';
+            document.getElementById('previewArea').style.display = 'none';
 
+            // Validação da Tela
             const ano = document.getElementById('inputAno').value;
             const cnpjRaw = document.getElementById('inputCnpj').value;
             const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
@@ -100,7 +149,7 @@
             const enderecoRaw = document.getElementById('inputEndereco').value;
 
             if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw || limparDocumento(cpfRespRaw).length !== 11 || !enderecoRaw) {
-                exibirMensagem('<strong>Atenção:</strong> Preencha todos os campos corretamente.', 'erro');
+                exibirMensagem('<strong>Atenção:</strong> Preencha todos os campos da empresa corretamente.', 'erro');
                 this.value = ''; 
                 return;
             }
@@ -111,17 +160,51 @@
                     const data = new Uint8Array(event.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const primeiraAba = workbook.SheetNames[0];
-                    const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: "" });
+                    dadosGlobaisPlanilha = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: "" });
                     
-                    gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw, cpfRespRaw, enderecoRaw);
+                    montarTabelaPreview(dadosGlobaisPlanilha);
                 } catch (error) {
-                    exibirMensagem('Erro ao ler a folha de cálculo.', 'erro');
+                    exibirMensagem('Erro ao ler a planilha.', 'erro');
                 }
             };
             reader.readAsArrayBuffer(file);
         });
 
-        function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm, cpfForm, enderecoForm) {
+        function montarTabelaPreview(linhas) {
+            const tbody = document.getElementById('corpoTabela');
+            tbody.innerHTML = ''; // Limpa a tabela anterior
+
+            linhas.forEach((linha, index) => {
+                const tr = document.createElement('tr');
+                
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${checarVazio(linha['CPF_CNPJ_LOCADOR'])}</td>
+                    <td>${checarVazio(linha['NOME_LOCADOR'])}</td>
+                    <td>${checarVazio(linha['CPF_CNPJ_LOCATARIO'])}</td>
+                    <td>${checarVazio(linha['NOME_LOCATARIO'])}</td>
+                    <td>${checarVazio(linha['NUM_CONTRATO'])}</td>
+                    <td>${checarVazio(linha['DATA_CONTRATO'])}</td>
+                    <td>${checarVazio(linha['ENDERECO_IMOVEL'])}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('previewArea').style.display = 'block';
+        }
+
+        // EVENTO 2: CLICAR NO BOTÃO PARA GERAR O ARQUIVO (Com o layout idêntico ao validado)
+        document.getElementById('btnGerarTxt').addEventListener('click', function() {
+            const ano = document.getElementById('inputAno').value;
+            const cnpjRaw = document.getElementById('inputCnpj').value;
+            const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
+            const cpfRespRaw = document.getElementById('inputCpfResp').value;
+            const enderecoRaw = document.getElementById('inputEndereco').value;
+
+            gerarArquivoTxtBytes(dadosGlobaisPlanilha, ano, cnpjRaw, razaoSocialRaw, cpfRespRaw, enderecoRaw);
+        });
+
+        function gerarArquivoTxtBytes(linhas, anoForm, cnpjForm, razaoSocialForm, cpfForm, enderecoForm) {
             const anoBase = anoForm;
             const cnpjDeclarante = limparDocumento(cnpjForm).padEnd(14, ' ');
             const razaoSocial = formatarTexto(razaoSocialForm, 60);
@@ -130,7 +213,7 @@
             
             let conteudoTxt = "";
 
-            // HEADER (T00)
+            // HEADER (T00) - Layout simplificado validado
             conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
 
             // DECLARANTE (R01)
@@ -149,15 +232,14 @@
                 const cpfCnpjLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']).padEnd(14, ' ');
                 const nomeLocatario = formatarTexto(linha['NOME_LOCATARIO'], 60);
                 
-                // A PEÇA QUE FALTAVA: 6 espaços para o Número do Contrato
+                // Garantindo os 6 espaços obrigatórios do contrato
                 const numContrato = formatarTexto(linha['NUM_CONTRATO'] || '', 6);
-                
                 const dataContrato = formatarTexto(linha['DATA_CONTRATO'], 8);
                 
                 const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
                 let valoresFinanceiros = "";
 
-                // Valores com 14 dígitos exatos
+                // Valores formatados com 14 posições exatamente como no dimob_2024.txt
                 meses.forEach(mes => {
                     valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
                     valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 14);
@@ -179,7 +261,7 @@
             // TRAILER (T9)
             conteudoTxt += "T9\r\n";
 
-            // Codificação em Bytes (Evita que o navegador insira caracteres UTF-8 invisíveis que causam erro no validador)
+            // Geração via Array de Bytes (ASCII) para evitar caracteres Web ocultos
             const byteArray = new Uint8Array(conteudoTxt.length);
             for (let i = 0; i < conteudoTxt.length; i++) {
                 byteArray[i] = conteudoTxt.charCodeAt(i) & 0xFF;
@@ -189,12 +271,14 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_FINAL_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_VALIDADA_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Ficheiro gerado!</strong> O problema do número do contrato foi resolvido. Pode testar a validação.', 'sucesso');
+            exibirMensagem('<strong>Ficheiro Gerado!</strong> Verifique a pasta de downloads.', 'sucesso');
+            // Oculta a área de preview para nova operação
+            document.getElementById('previewArea').style.display = 'none';
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
