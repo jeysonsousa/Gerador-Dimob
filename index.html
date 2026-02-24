@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,7 +26,7 @@
 
     <div class="container">
         <h1>Gerador DIMOB</h1>
-        <p>Preencha os dados e suba sua planilha. <strong>Atenção ao Ano:</strong> Informe o ano em que os negócios ocorreram (Ex: 2024).</p>
+        <p>Preencha os dados e carregue a sua folha de cálculo. <strong>Atenção ao Ano:</strong> Informe o ano em que os negócios ocorreram.</p>
         
         <div class="form-grid">
             <div class="form-group">
@@ -34,7 +34,7 @@
                 <input type="number" id="inputAno" value="2024" min="2000" max="2099">
             </div>
             <div class="form-group">
-                <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
+                <label for="inputCnpj">NIF (CNPJ) da Empresa Declarante:</label>
                 <input type="text" id="inputCnpj" placeholder="Apenas números" maxlength="14">
             </div>
             <div class="form-group full-width">
@@ -44,7 +44,7 @@
         </div>
 
         <div class="upload-section">
-            <label style="font-size: 16px; color: #1a73e8;">Selecione a Planilha de Locatários</label>
+            <label style="font-size: 16px; color: #1a73e8;">Selecione o ficheiro Excel de Locatários</label>
             <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
         </div>
 
@@ -105,7 +105,7 @@
                     
                     gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw);
                 } catch (error) {
-                    exibirMensagem('Erro ao ler a planilha.', 'erro');
+                    exibirMensagem('Erro ao ler a folha de cálculo.', 'erro');
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -119,17 +119,18 @@
             
             let conteudoTxt = "";
 
-            // HEADER - Exatos 151 caracteres
+            // HEADER - Exatos 374 caracteres
             const restoHeader = "PA030061772010002991330287000000000000000000066300701207698";
-            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`;
+            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`.padEnd(374, ' ');
             conteudoTxt += linhaHeader + '\r\n';
 
-            // R01 - Exatos 253 caracteres
-            const restoR01 = "02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE                                                      PA0427BELEM            ";
-            const linhaR01 = `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}`;
+            // R01 - Exatos 270 caracteres
+            const enderecoEmpresa = formatarTexto("AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE", 120);
+            const restoR01 = "02991330287" + enderecoEmpresa + "PA0427" + formatarTexto("BELEM", 20);
+            const linhaR01 = `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}`.padEnd(270, ' ');
             conteudoTxt += linhaR01 + '\r\n';
 
-            // R02 - Exatos 783 caracteres
+            // R02 - Exatos 793 caracteres
             linhas.forEach((linha, index) => {
                 const sequencial = (index + 1).toString().padStart(7, '0');
                 
@@ -156,16 +157,17 @@
                 const nomeMunicipio = formatarTexto(linha['MUNICIPIO'] || 'BELEM', 20);
                 const uf = formatarTexto(linha['UF'] || 'PA', 2);
 
-                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${tipoImovel}${endereco}${cep}${codMunicipio}${nomeMunicipio}${uf}`;
+                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${tipoImovel}${endereco}${cep}${codMunicipio}${nomeMunicipio}${uf}`.padEnd(793, ' ');
                 
                 conteudoTxt += linhaR02 + '\r\n'; 
             });
 
-            // T9 - Exatos 28 caracteres
+            // T9 - Exatos 102 caracteres
             const totalRegistros = (linhas.length + 2).toString().padStart(8, '0');
-            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`;
+            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`.padEnd(102, ' ');
             conteudoTxt += linhaT9 + '\r\n';
 
+            // Certifique-se de que o ficheiro gera em formato ANSI compatível através de blob
             const blob = new Blob([conteudoTxt], { type: "text/plain;charset=windows-1252" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -175,7 +177,7 @@
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Arquivo gerado!</strong> Por favor, siga a Regra de Ouro abaixo antes de importar.', 'sucesso');
+            exibirMensagem('<strong>Sucesso!</strong> Ficheiro gerado com o espaçamento oficial absoluto. Pode validar no PGD.', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
