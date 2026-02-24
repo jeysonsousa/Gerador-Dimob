@@ -72,12 +72,12 @@
 
     <div class="container">
         <h1>Gerador DIMOB</h1>
-        <p>Preencha os dados da empresa declarante e faça o upload da planilha Excel com os dados dos locatários para gerar o arquivo de importação (.txt).</p>
+        <p>Preencha os dados e suba sua planilha. <strong>Atenção ao Ano:</strong> Informe o ano em que os negócios ocorreram (Ex: 2024). O sistema gerará o cabeçalho automaticamente para entrega no ano seguinte (+1).</p>
         
         <div class="form-grid">
             <div class="form-group">
-                <label for="inputAno">Ano Calendário (Ref. aos dados):</label>
-                <input type="number" id="inputAno" value="2025" min="2000" max="2099">
+                <label for="inputAno">Ano Base (Ref. aos dados):</label>
+                <input type="number" id="inputAno" value="2024" min="2000" max="2099">
             </div>
             <div class="form-group">
                 <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
@@ -85,7 +85,7 @@
             </div>
             <div class="form-group full-width">
                 <label for="inputRazaoSocial">Razão Social da Empresa Declarante:</label>
-                <input type="text" id="inputRazaoSocial" placeholder="Ex: WWM HOLDING EMPREENDIMENTOS..." maxlength="60">
+                <input type="text" id="inputRazaoSocial" placeholder="Ex: WWM HOLDING..." maxlength="60">
             </div>
         </div>
 
@@ -98,7 +98,6 @@
     </div>
 
     <script>
-        // --- FUNÇÕES DE FORMATAÇÃO POSICIONAL ---
         const limparDocumento = (doc) => {
             if (!doc) return '';
             return doc.toString().replace(/\D/g, '');
@@ -126,7 +125,6 @@
             div.innerHTML = html;
         };
 
-        // --- GATILHO DE LEITURA DO ARQUIVO ---
         document.getElementById('uploadPlanilha').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -159,7 +157,6 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // --- LÓGICA PRINCIPAL DE MONTAGEM ---
         function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm) {
             const errosValidacao = [];
 
@@ -178,34 +175,33 @@
 
             if (errosValidacao.length > 0) {
                 const listaErros = errosValidacao.join('<br>• ');
-                exibirMensagem(`<strong>Não foi possível gerar o arquivo. Corrija a planilha:</strong><br><br>• ${listaErros}`, 'erro');
+                exibirMensagem(`<strong>Erro de Validação:</strong><br><br>• ${listaErros}`, 'erro');
                 document.getElementById('uploadPlanilha').value = '';
                 return; 
             }
 
             const anoBase = anoForm;
             const anoEntrega = (parseInt(anoBase) + 1).toString();
-            // CNPJ e Razão Social (Padrões fixos do layout)
-            const cnpjDeclarante = limparDocumento(cnpjForm).padEnd(14, ' ');
+            const cnpjDeclarante = limparDocumento(cnpjForm).padStart(14, '0');
             const razaoSocial = formatarTexto(razaoSocialForm, 60);
             
             let conteudoTxt = "";
 
-            // --- REGISTRO HEADER (T00) - 366 posições ---
+            // --- REGISTRO HEADER (T00) - Forçado para EXATOS 356 caracteres ---
             const restoHeader = "PA030061772010002991330287000000000000000000066300701207698";
-            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`.padEnd(366, ' ');
+            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`.padEnd(356, ' ');
             conteudoTxt += linhaHeader + '\r\n';
 
-            // --- REGISTRO R01 (Declarante) - 260 posições ---
+            // --- REGISTRO R01 (Declarante) - Forçado para EXATOS 260 caracteres ---
             const restoR01 = "02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE                                                      PA0427BELEM            ";
             const linhaR01 = `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}`.padEnd(260, ' ');
             conteudoTxt += linhaR01 + '\r\n';
 
-            // --- REGISTROS R02 (Locações) - 783 posições ---
+            // --- REGISTROS R02 (Locações) - Forçado para EXATOS 783 caracteres ---
             linhas.forEach((linha, index) => {
-                const sequencial = (index + 1).toString().padStart(7, '0'); // AGORA COM 7 DÍGITOS
+                const sequencial = (index + 1).toString().padStart(7, '0');
                 
-                // Documentos alinhados à esquerda e preenchidos com espaço (Correção essencial para CPFs)
+                // O layout exige que os documentos sejam alinhados à esquerda e completados com espaços à direita
                 const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padEnd(14, ' ');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
                 const cpfCnpjLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']).padEnd(14, ' ');
@@ -222,7 +218,6 @@
                     valoresFinanceiros += `${aluguel}${comissao}${irrf}`;
                 });
 
-                // Inserindo o "U" de Imóvel Urbano e os 20 espaços do nome do Município
                 const tipoImovel = "U";
                 const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
                 const cep = formatarTexto(limparDocumento(linha['CEP']), 8);
@@ -235,9 +230,9 @@
                 conteudoTxt += linhaR02 + '\r\n'; 
             });
 
-            // --- REGISTRO T9 (Trailer) - 105 posições ---
+            // --- REGISTRO T9 (Trailer) - Forçado para EXATOS 125 caracteres ---
             const totalRegistros = (linhas.length + 2).toString().padStart(8, '0');
-            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`.padEnd(105, ' ');
+            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`.padEnd(125, ' ');
             conteudoTxt += linhaT9 + '\r\n';
 
             // Disparo de Download
@@ -245,12 +240,12 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_${limparDocumento(cnpjDeclarante)}_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_${cnpjDeclarante}_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Arquivo gerado com sucesso!</strong> Importe no PGD da Receita Federal.', 'sucesso');
+            exibirMensagem('<strong>Pronto!</strong> Arquivo gerado com a estrutura milimétrica corrigida. Pode validar.', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
