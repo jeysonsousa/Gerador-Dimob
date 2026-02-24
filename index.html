@@ -24,7 +24,6 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
 
-        /* Estilos do Formulário do Declarante */
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -48,7 +47,6 @@
             box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
         }
 
-        /* Estilos do Upload */
         .upload-section {
             background-color: #f8f9fa;
             border: 2px dashed #abb8c3;
@@ -79,7 +77,7 @@
         <div class="form-grid">
             <div class="form-group">
                 <label for="inputAno">Ano Calendário (Ref. aos dados):</label>
-                <input type="number" id="inputAno" value="2023" min="2000" max="2099">
+                <input type="number" id="inputAno" value="2024" min="2000" max="2099">
             </div>
             <div class="form-group">
                 <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
@@ -135,14 +133,13 @@
 
             document.getElementById('mensagem').style.display = 'none';
 
-            // Validação prévia dos campos da tela
             const ano = document.getElementById('inputAno').value;
             const cnpjRaw = document.getElementById('inputCnpj').value;
             const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
 
             if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw) {
                 exibirMensagem('<strong>Atenção:</strong> Preencha corretamente o Ano, CNPJ (14 dígitos) e Razão Social antes de selecionar a planilha.', 'erro');
-                this.value = ''; // Limpa o input de arquivo
+                this.value = ''; 
                 return;
             }
 
@@ -166,7 +163,6 @@
         function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm) {
             const errosValidacao = [];
 
-            // Validação das linhas do Excel (Locador e Locatário)
             linhas.forEach((linha, index) => {
                 const numLinhaExcel = index + 2; 
                 const docLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']);
@@ -187,23 +183,25 @@
                 return; 
             }
 
-            // Preparação das Variáveis Fixas
+            // Variáveis Fixas
             const anoBase = anoForm;
+            const anoEntrega = (parseInt(anoBase) + 1).toString(); // O Header exige Ano Base + 1
             const cnpjDeclarante = limparDocumento(cnpjForm).padStart(14, '0');
             const razaoSocial = formatarTexto(razaoSocialForm, 60);
             
             let conteudoTxt = "";
 
-            // --- REGISTRO HEADER (T00) ---
-            // O restante da string simula o padrão do arquivo enviado anteriormente (versão do layout, etc)
-            const restoHeader = "PA030061772010002991330287000000000000000000066300701207698".padEnd(80, ' ');
-            conteudoTxt += `DIMOB       ${anoBase}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}\r\n`;
+            // --- REGISTRO HEADER (T00) - Forçando exatos 250 caracteres ---
+            const restoHeader = "PA030061772010002991330287000000000000000000066300701207698";
+            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`.padEnd(250, ' ');
+            conteudoTxt += linhaHeader + '\r\n';
 
-            // --- REGISTRO R01 (Dados do Declarante) ---
+            // --- REGISTRO R01 (Declarante) - Forçando exatos 250 caracteres ---
             const restoR01 = "02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201".padEnd(85, ' ') + "PA0427BELEM".padEnd(20, ' ');
-            conteudoTxt += `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}\r\n`;
+            const linhaR01 = `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}`.padEnd(250, ' ');
+            conteudoTxt += linhaR01 + '\r\n';
 
-            // --- REGISTROS R02 (Locações) ---
+            // --- REGISTROS R02 (Locações) - Forçando exatos 762 caracteres ---
             linhas.forEach((linha, index) => {
                 const sequencial = (index + 1).toString().padStart(6, '0');
                 
@@ -230,14 +228,15 @@
 
                 const situacaoEspecial = "0";
 
-                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${situacaoEspecial}${endereco}${cep}${codMunicipio}${uf}`;
+                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${situacaoEspecial}${endereco}${cep}${codMunicipio}${uf}`.padEnd(762, ' ');
                 
                 conteudoTxt += linhaR02 + '\r\n'; 
             });
 
-            // --- REGISTRO T9 (Trailer) ---
-            const totalRegistros = (linhas.length + 2).toString().padStart(9, '0');
-            conteudoTxt += `T9${cnpjDeclarante}${totalRegistros}\r\n`;
+            // --- REGISTRO T9 (Trailer) - Forçando exatos 250 caracteres ---
+            const totalRegistros = (linhas.length + 2).toString().padStart(8, '0');
+            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`.padEnd(250, ' ');
+            conteudoTxt += linhaT9 + '\r\n';
 
             // Disparo de Download
             const blob = new Blob([conteudoTxt], { type: "text/plain;charset=utf-8" });
@@ -249,8 +248,8 @@
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Arquivo gerado com sucesso!</strong> O download iniciou automaticamente. Você já pode importar no PGD da Receita Federal.', 'sucesso');
-            document.getElementById('uploadPlanilha').value = ''; // Limpa o campo para novo uso
+            exibirMensagem('<strong>Arquivo gerado com sucesso!</strong> O download iniciou. Importe no PGD da Receita Federal.', 'sucesso');
+            document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
 </body>
