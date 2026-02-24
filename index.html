@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador DIMOB</title>
+    <title>Gerador DIMOB Multiempresas</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         body { 
             font-family: Arial, sans-serif; 
             padding: 40px; 
-            max-width: 700px; 
+            max-width: 800px; 
             margin: auto; 
             background-color: #f0f2f5;
         }
-        h1 { color: #333; }
+        h1 { color: #1a73e8; margin-bottom: 5px; }
+        p { color: #555; margin-bottom: 25px; line-height: 1.5; }
+        
         .container { 
             border: 1px solid #ccc; 
             padding: 30px; 
@@ -21,19 +23,48 @@
             background: #ffffff; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
-        input[type="file"] { 
-            margin: 20px 0; 
-            display: block; 
-            padding: 10px;
-            border: 1px dashed #999;
-            width: 100%;
-            box-sizing: border-box;
+
+        /* Estilos do Formulário do Declarante */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
         }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full-width { grid-column: span 2; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; }
+        input[type="text"], input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+        }
+
+        /* Estilos do Upload */
+        .upload-section {
+            background-color: #f8f9fa;
+            border: 2px dashed #abb8c3;
+            padding: 20px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        input[type="file"] { margin: 10px auto; display: block; }
+        
         #mensagem { 
             margin-top: 20px; 
             padding: 15px;
             border-radius: 5px;
             display: none;
+            font-size: 14px;
+            line-height: 1.5;
         }
         .erro { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
         .sucesso { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
@@ -42,23 +73,39 @@
 <body>
 
     <div class="container">
-        <h1>Gerador de Arquivo DIMOB</h1>
-        <p>Selecione a planilha Excel para gerar o arquivo <strong>.txt</strong> de importação. O sistema fará a validação automática dos CPFs e CNPJs antes de exportar.</p>
+        <h1>Gerador DIMOB</h1>
+        <p>Preencha os dados da empresa declarante e faça o upload da planilha Excel com os dados dos locatários para gerar o arquivo de importação (.txt).</p>
         
-        <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="inputAno">Ano Calendário (Ref. aos dados):</label>
+                <input type="number" id="inputAno" value="2023" min="2000" max="2099">
+            </div>
+            <div class="form-group">
+                <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
+                <input type="text" id="inputCnpj" placeholder="Apenas números" maxlength="14">
+            </div>
+            <div class="form-group full-width">
+                <label for="inputRazaoSocial">Razão Social da Empresa Declarante:</label>
+                <input type="text" id="inputRazaoSocial" placeholder="Ex: WWM HOLDING EMPREENDIMENTOS..." maxlength="60">
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <label style="font-size: 16px; color: #1a73e8;">Selecione a Planilha de Locatários</label>
+            <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
+        </div>
+
         <div id="mensagem"></div>
     </div>
 
     <script>
-        // --- FUNÇÕES UTILITÁRIAS ---
-
-        // Deixa apenas os números para validar e exportar CPF/CNPJ
+        // --- FUNÇÕES DE FORMATAÇÃO POSICIONAL ---
         const limparDocumento = (doc) => {
             if (!doc) return '';
             return doc.toString().replace(/\D/g, '');
         };
 
-        // Remove acentos, caracteres especiais e ajusta o tamanho com espaços em branco à direita
         const formatarTexto = (texto, tamanho) => {
             if (!texto) return ''.padEnd(tamanho, ' ');
             let formatado = texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
@@ -66,18 +113,14 @@
             return formatado.substring(0, tamanho).padEnd(tamanho, ' ');
         };
 
-        // Converte valor financeiro para centavos (sem vírgula) e preenche com zeros à esquerda
         const formatarMoeda = (valor, tamanho) => {
             if (!valor) return ''.padStart(tamanho, '0');
-            // Trata valores que possam vir como string com vírgula do Excel
             let numero = typeof valor === 'string' ? parseFloat(valor.replace(',', '.')) : parseFloat(valor);
             if (isNaN(numero)) numero = 0;
-            
             const emCentavos = Math.round(numero * 100).toString();
             return emCentavos.padStart(tamanho, '0');
         };
 
-        // Mostrar mensagens na tela
         const exibirMensagem = (html, tipo) => {
             const div = document.getElementById('mensagem');
             div.style.display = 'block';
@@ -85,12 +128,23 @@
             div.innerHTML = html;
         };
 
-        // --- EVENTO DE UPLOAD DA PLANILHA ---
+        // --- GATILHO DE LEITURA DO ARQUIVO ---
         document.getElementById('uploadPlanilha').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
             document.getElementById('mensagem').style.display = 'none';
+
+            // Validação prévia dos campos da tela
+            const ano = document.getElementById('inputAno').value;
+            const cnpjRaw = document.getElementById('inputCnpj').value;
+            const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
+
+            if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw) {
+                exibirMensagem('<strong>Atenção:</strong> Preencha corretamente o Ano, CNPJ (14 dígitos) e Razão Social antes de selecionar a planilha.', 'erro');
+                this.value = ''; // Limpa o input de arquivo
+                return;
+            }
 
             const reader = new FileReader();
             reader.onload = function(event) {
@@ -98,11 +152,9 @@
                     const data = new Uint8Array(event.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const primeiraAba = workbook.SheetNames[0];
-                    
-                    // Converte a aba para JSON, garantindo que células vazias venham como string vazia
                     const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: "" });
                     
-                    gerarArquivoTxt(linhas);
+                    gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw);
                 } catch (error) {
                     exibirMensagem('Erro ao ler a planilha. Verifique se o formato é um Excel válido.', 'erro');
                 }
@@ -110,13 +162,13 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // --- LÓGICA PRINCIPAL DE VALIDAÇÃO E MONTAGEM ---
-        function gerarArquivoTxt(linhas) {
+        // --- LÓGICA PRINCIPAL DE MONTAGEM ---
+        function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm) {
             const errosValidacao = [];
 
-            // 1. VALIDAÇÃO DE DADOS (Checa se CPF/CNPJ tem 11 ou 14 dígitos)
+            // Validação das linhas do Excel (Locador e Locatário)
             linhas.forEach((linha, index) => {
-                const numLinhaExcel = index + 2; // +2 porque a linha 1 é o cabeçalho
+                const numLinhaExcel = index + 2; 
                 const docLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']);
                 const docLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']);
 
@@ -128,29 +180,33 @@
                 }
             });
 
-            // Se houver erros, interrompe e mostra na tela
             if (errosValidacao.length > 0) {
                 const listaErros = errosValidacao.join('<br>• ');
-                exibirMensagem(`<strong>Não foi possível gerar o arquivo. Corrija os seguintes erros na planilha:</strong><br><br>• ${listaErros}`, 'erro');
+                exibirMensagem(`<strong>Não foi possível gerar o arquivo. Corrija a planilha:</strong><br><br>• ${listaErros}`, 'erro');
+                document.getElementById('uploadPlanilha').value = '';
                 return; 
             }
 
-            // 2. CONFIGURAÇÕES BASE
-            const anoBase = "2023"; // Ajuste conforme a declaração
-            const cnpjDeclarante = "31975245000168"; // Seu CNPJ
+            // Preparação das Variáveis Fixas
+            const anoBase = anoForm;
+            const cnpjDeclarante = limparDocumento(cnpjForm).padStart(14, '0');
+            const razaoSocial = formatarTexto(razaoSocialForm, 60);
             
             let conteudoTxt = "";
 
-            // 3. HEADER E R01 (Dados Fixos da Declarante)
-            conteudoTxt += `DIMOB       ${anoBase}17250319752450001682280WWM HOLDING, EMPREENDIMENTOS E ADMINISTRACAO PATRIMONIAL LIMPA030061772010002991330287000000000000000000066300701207698                                                                                       \r\n`;
-            conteudoTxt += `R01${cnpjDeclarante}${anoBase}0000000000000000000000WWM HOLDING, EMPREENDIMENTOS E ADMINISTRACAO PATRIMONIAL LIM02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE                                                      PA0427BELEM            \r\n`;
+            // --- REGISTRO HEADER (T00) ---
+            // O restante da string simula o padrão do arquivo enviado anteriormente (versão do layout, etc)
+            const restoHeader = "PA030061772010002991330287000000000000000000066300701207698".padEnd(80, ' ');
+            conteudoTxt += `DIMOB       ${anoBase}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}\r\n`;
 
-            // 4. REGISTROS R02 (Iterando sobre as linhas validadas do Excel)
+            // --- REGISTRO R01 (Dados do Declarante) ---
+            const restoR01 = "02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201".padEnd(85, ' ') + "PA0427BELEM".padEnd(20, ' ');
+            conteudoTxt += `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}\r\n`;
+
+            // --- REGISTROS R02 (Locações) ---
             linhas.forEach((linha, index) => {
                 const sequencial = (index + 1).toString().padStart(6, '0');
                 
-                // Extração e padronização dos textos
-                // Adicionando padStart no documento para preencher com zeros à esquerda caso seja um CPF (11) para atingir as 14 posições exigidas no layout
                 const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padStart(14, '0');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
                 const cpfCnpjLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']).padStart(14, '0');
@@ -160,7 +216,6 @@
                 const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
                 let valoresFinanceiros = "";
 
-                // Loop para concatenar Aluguel, Comissão e IRRF dos 12 meses
                 meses.forEach(mes => {
                     const aluguel = formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
                     const comissao = formatarMoeda(linha[`COMISSAO_${mes}`], 14);
@@ -168,35 +223,34 @@
                     valoresFinanceiros += `${aluguel}${comissao}${irrf}`;
                 });
 
-                // Endereço e localização do imóvel (Padrão sugerido, ajuste se precisar)
                 const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
                 const cep = formatarTexto(limparDocumento(linha['CEP']), 8);
-                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || '0427', 4); // 0427 = Belém
+                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || '0427', 4);
                 const uf = formatarTexto(linha['UF'] || 'PA', 2);
 
-                const situacaoEspecial = "0"; // 0 = Normal
+                const situacaoEspecial = "0";
 
-                // Montagem da linha posicional
                 const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${situacaoEspecial}${endereco}${cep}${codMunicipio}${uf}`;
                 
                 conteudoTxt += linhaR02 + '\r\n'; 
             });
 
-            // 5. TRAILER T9 (Fechamento)
-            const totalRegistros = (linhas.length + 2).toString().padStart(9, '0'); // +2 pelo Header e R01
+            // --- REGISTRO T9 (Trailer) ---
+            const totalRegistros = (linhas.length + 2).toString().padStart(9, '0');
             conteudoTxt += `T9${cnpjDeclarante}${totalRegistros}\r\n`;
 
-            // 6. DISPARAR DOWNLOAD AUTOMÁTICO
+            // Disparo de Download
             const blob = new Blob([conteudoTxt], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_IMPORTACAO_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_${cnpjDeclarante}_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Sucesso!</strong> O arquivo foi validado e baixado para o seu computador. Você já pode importar no PGD.', 'sucesso');
+            exibirMensagem('<strong>Arquivo gerado com sucesso!</strong> O download iniciou automaticamente. Você já pode importar no PGD da Receita Federal.', 'sucesso');
+            document.getElementById('uploadPlanilha').value = ''; // Limpa o campo para novo uso
         }
     </script>
 </body>
