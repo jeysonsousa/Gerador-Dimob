@@ -72,7 +72,6 @@
             return formatado.substring(0, tamanho).padEnd(tamanho, ' ');
         };
 
-        // CORREÇÃO AQUI: Mudança para garantir que o preenchimento de zeros respeite o tamanho estrito (15 dígitos) exigido pela Receita
         const formatarMoeda = (valor, tamanho) => {
             if (!valor) return ''.padStart(tamanho, '0');
             let numero = typeof valor === 'string' ? parseFloat(valor.replace(',', '.')) : parseFloat(valor);
@@ -131,7 +130,7 @@
             
             let conteudoTxt = "";
 
-            // HEADER (T00)
+            // HEADER (T00) Clonado exatamente do seu modelo de sucesso
             conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
 
             // DECLARANTE (R01)
@@ -143,7 +142,7 @@
 
             // LOCAÇÕES (R02)
             linhas.forEach((linha, index) => {
-                const sequencial = (index + 1).toString().padEnd(6, ' ');
+                const sequencial = (index + 1).toString().padEnd(5, ' ');
                 
                 const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padEnd(14, ' ');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
@@ -154,11 +153,10 @@
                 const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
                 let valoresFinanceiros = "";
 
-                // CORREÇÃO AQUI: Passando para os 15 dígitos oficiais
                 meses.forEach(mes => {
-                    valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 15);
-                    valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 15);
-                    valoresFinanceiros += formatarMoeda(linha[`IRRF_${mes}`], 15);
+                    valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
+                    valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 14);
+                    valoresFinanceiros += formatarMoeda(linha[`IRRF_${mes}`], 14);
                 });
 
                 const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
@@ -176,16 +174,22 @@
             // TRAILER (T9)
             conteudoTxt += "T9\r\n";
 
-            const blob = new Blob([conteudoTxt], { type: "text/plain" });
+            // A MÁGICA FINAL: Força a criação de um byte array ASCII puro (sem interferência de formato Web/UTF-8)
+            const byteArray = new Uint8Array(conteudoTxt.length);
+            for (let i = 0; i < conteudoTxt.length; i++) {
+                byteArray[i] = conteudoTxt.charCodeAt(i) & 0xFF;
+            }
+
+            const blob = new Blob([byteArray], { type: "application/octet-stream" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_FINAL_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_RESOLVIDA_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Pronto!</strong> Este é o arquivo definitivo. Desejo sucesso na validação!', 'sucesso');
+            exibirMensagem('<strong>Gerado!</strong> Este arquivo é blindado contra o navegador. Envie para o PGD.', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
