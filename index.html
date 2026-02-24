@@ -6,42 +6,91 @@
     <title>Gerador DIMOB</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 40px; max-width: 600px; margin: auto; }
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 40px; 
+            max-width: 700px; 
+            margin: auto; 
+            background-color: #f0f2f5;
+        }
         h1 { color: #333; }
-        .container { border: 1px solid #ccc; padding: 30px; border-radius: 8px; background: #f9f9f9; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input[type="file"] { margin: 20px 0; display: block; }
-        #mensagem { margin-top: 15px; font-weight: bold; }
+        .container { 
+            border: 1px solid #ccc; 
+            padding: 30px; 
+            border-radius: 8px; 
+            background: #ffffff; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        input[type="file"] { 
+            margin: 20px 0; 
+            display: block; 
+            padding: 10px;
+            border: 1px dashed #999;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #mensagem { 
+            margin-top: 20px; 
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .erro { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        .sucesso { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>Gerador de Arquivo DIMOB</h1>
-        <p>Selecione a planilha Excel para gerar o arquivo .txt de importação.</p>
+        <p>Selecione a planilha Excel para gerar o arquivo <strong>.txt</strong> de importação. O sistema fará a validação automática dos CPFs e CNPJs antes de exportar.</p>
         
         <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
         <div id="mensagem"></div>
     </div>
 
     <script>
-        // Funções utilitárias para o layout posicional
+        // --- FUNÇÕES UTILITÁRIAS ---
+
+        // Deixa apenas os números para validar e exportar CPF/CNPJ
+        const limparDocumento = (doc) => {
+            if (!doc) return '';
+            return doc.toString().replace(/\D/g, '');
+        };
+
+        // Remove acentos, caracteres especiais e ajusta o tamanho com espaços em branco à direita
         const formatarTexto = (texto, tamanho) => {
             if (!texto) return ''.padEnd(tamanho, ' ');
             let formatado = texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-            formatado = formatado.replace(/[^A-Z0-9 ]/g, ''); // Remove acentos e caracteres especiais
+            formatado = formatado.replace(/[^A-Z0-9 ]/g, ''); 
             return formatado.substring(0, tamanho).padEnd(tamanho, ' ');
         };
 
+        // Converte valor financeiro para centavos (sem vírgula) e preenche com zeros à esquerda
         const formatarMoeda = (valor, tamanho) => {
             if (!valor) return ''.padStart(tamanho, '0');
-            const emCentavos = Math.round(parseFloat(valor) * 100).toString();
+            // Trata valores que possam vir como string com vírgula do Excel
+            let numero = typeof valor === 'string' ? parseFloat(valor.replace(',', '.')) : parseFloat(valor);
+            if (isNaN(numero)) numero = 0;
+            
+            const emCentavos = Math.round(numero * 100).toString();
             return emCentavos.padStart(tamanho, '0');
         };
 
-        // Evento de leitura do arquivo
+        // Mostrar mensagens na tela
+        const exibirMensagem = (html, tipo) => {
+            const div = document.getElementById('mensagem');
+            div.style.display = 'block';
+            div.className = tipo;
+            div.innerHTML = html;
+        };
+
+        // --- EVENTO DE UPLOAD DA PLANILHA ---
         document.getElementById('uploadPlanilha').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
+
+            document.getElementById('mensagem').style.display = 'none';
 
             const reader = new FileReader();
             reader.onload = function(event) {
@@ -49,65 +98,105 @@
                     const data = new Uint8Array(event.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const primeiraAba = workbook.SheetNames[0];
-                    const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba]);
+                    
+                    // Converte a aba para JSON, garantindo que células vazias venham como string vazia
+                    const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: "" });
                     
                     gerarArquivoTxt(linhas);
                 } catch (error) {
-                    document.getElementById('mensagem').innerText = 'Erro ao ler a planilha. Verifique o arquivo.';
-                    document.getElementById('mensagem').style.color = 'red';
+                    exibirMensagem('Erro ao ler a planilha. Verifique se o formato é um Excel válido.', 'erro');
                 }
             };
             reader.readAsArrayBuffer(file);
         });
 
-        // Lógica principal de montagem do TXT
+        // --- LÓGICA PRINCIPAL DE VALIDAÇÃO E MONTAGEM ---
         function gerarArquivoTxt(linhas) {
+            const errosValidacao = [];
+
+            // 1. VALIDAÇÃO DE DADOS (Checa se CPF/CNPJ tem 11 ou 14 dígitos)
+            linhas.forEach((linha, index) => {
+                const numLinhaExcel = index + 2; // +2 porque a linha 1 é o cabeçalho
+                const docLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']);
+                const docLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']);
+
+                if (docLocador.length !== 11 && docLocador.length !== 14) {
+                    errosValidacao.push(`Linha ${numLinhaExcel}: Documento do Locador inválido (${docLocador.length} dígitos).`);
+                }
+                if (docLocatario.length !== 11 && docLocatario.length !== 14) {
+                    errosValidacao.push(`Linha ${numLinhaExcel}: Documento do Locatário inválido (${docLocatario.length} dígitos).`);
+                }
+            });
+
+            // Se houver erros, interrompe e mostra na tela
+            if (errosValidacao.length > 0) {
+                const listaErros = errosValidacao.join('<br>• ');
+                exibirMensagem(`<strong>Não foi possível gerar o arquivo. Corrija os seguintes erros na planilha:</strong><br><br>• ${listaErros}`, 'erro');
+                return; 
+            }
+
+            // 2. CONFIGURAÇÕES BASE
             const anoBase = "2023"; // Ajuste conforme a declaração
-            const cnpjDeclarante = "31975245000168"; // CNPJ da WWM
+            const cnpjDeclarante = "31975245000168"; // Seu CNPJ
             
             let conteudoTxt = "";
 
-            // 1. HEADER E R01 (Estou usando os dados fixos do arquivo que você enviou como base)
+            // 3. HEADER E R01 (Dados Fixos da Declarante)
             conteudoTxt += `DIMOB       ${anoBase}17250319752450001682280WWM HOLDING, EMPREENDIMENTOS E ADMINISTRACAO PATRIMONIAL LIMPA030061772010002991330287000000000000000000066300701207698                                                                                       \r\n`;
             conteudoTxt += `R01${cnpjDeclarante}${anoBase}0000000000000000000000WWM HOLDING, EMPREENDIMENTOS E ADMINISTRACAO PATRIMONIAL LIM02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE                                                      PA0427BELEM            \r\n`;
 
-            // 2. REGISTROS R02 (Iterando sobre as linhas do seu Excel)
+            // 4. REGISTROS R02 (Iterando sobre as linhas validadas do Excel)
             linhas.forEach((linha, index) => {
                 const sequencial = (index + 1).toString().padStart(6, '0');
                 
-                // Mapeamento esperado das colunas do Excel
-                const cpfLocador = formatarTexto(linha['CPF_LOCADOR'], 14);
+                // Extração e padronização dos textos
+                // Adicionando padStart no documento para preencher com zeros à esquerda caso seja um CPF (11) para atingir as 14 posições exigidas no layout
+                const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padStart(14, '0');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
-                const cpfLocatario = formatarTexto(linha['CPF_LOCATARIO'], 14);
-                const dataContrato = formatarTexto(linha['DATA_CONTRATO'], 8); // Formato DDMMAAAA
-                const aluguelJan = formatarMoeda(linha['ALUGUEL_JAN'], 14);
+                const cpfCnpjLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']).padStart(14, '0');
+                const nomeLocatario = formatarTexto(linha['NOME_LOCATARIO'], 60);
+                const dataContrato = formatarTexto(linha['DATA_CONTRATO'], 8);
                 
-                // Variáveis fixas do seu escopo local
-                const codMunicipio = "0427"; // Belém
-                const uf = "PA";
+                const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+                let valoresFinanceiros = "";
 
-                // Construção posicional da linha (Este é o esqueleto, precisa adicionar todas as posições do manual)
-                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfLocador}${nomeLocador}${cpfLocatario}${dataContrato}${aluguelJan}/*...preencher com demais colunas do manual...*//${codMunicipio}${uf}`;
+                // Loop para concatenar Aluguel, Comissão e IRRF dos 12 meses
+                meses.forEach(mes => {
+                    const aluguel = formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
+                    const comissao = formatarMoeda(linha[`COMISSAO_${mes}`], 14);
+                    const irrf = formatarMoeda(linha[`IRRF_${mes}`], 14);
+                    valoresFinanceiros += `${aluguel}${comissao}${irrf}`;
+                });
+
+                // Endereço e localização do imóvel (Padrão sugerido, ajuste se precisar)
+                const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
+                const cep = formatarTexto(limparDocumento(linha['CEP']), 8);
+                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || '0427', 4); // 0427 = Belém
+                const uf = formatarTexto(linha['UF'] || 'PA', 2);
+
+                const situacaoEspecial = "0"; // 0 = Normal
+
+                // Montagem da linha posicional
+                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${situacaoEspecial}${endereco}${cep}${codMunicipio}${uf}`;
                 
-                conteudoTxt += linhaR02.padEnd(500, ' ') + '\r\n'; // Força o tamanho da linha (ajustar p/ layout exato)
+                conteudoTxt += linhaR02 + '\r\n'; 
             });
 
-            // 3. TRAILER T9
-            const totalRegistros = (linhas.length + 2).toString().padStart(9, '0'); // +2 por conta do Header e R01
+            // 5. TRAILER T9 (Fechamento)
+            const totalRegistros = (linhas.length + 2).toString().padStart(9, '0'); // +2 pelo Header e R01
             conteudoTxt += `T9${cnpjDeclarante}${totalRegistros}\r\n`;
 
-            // 4. DOWNLOAD AUTOMÁTICO
+            // 6. DISPARAR DOWNLOAD AUTOMÁTICO
             const blob = new Blob([conteudoTxt], { type: "text/plain;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_IMPORTACAO.txt`);
+            link.setAttribute('download', `DIMOB_IMPORTACAO_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            document.getElementById('mensagem').innerText = 'Sucesso! O arquivo .txt foi baixado.';
-            document.getElementById('mensagem').style.color = 'green';
+            exibirMensagem('<strong>Sucesso!</strong> O arquivo foi validado e baixado para o seu computador. Você já pode importar no PGD.', 'sucesso');
         }
     </script>
 </body>
