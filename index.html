@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador DIMOB</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; max-width: 600px; margin: auto; }
+        h1 { color: #333; }
+        .container { border: 1px solid #ccc; padding: 30px; border-radius: 8px; background: #f9f9f9; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input[type="file"] { margin: 20px 0; display: block; }
+        #mensagem { margin-top: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gerador de Arquivo DIMOB</h1>
+        <p>Selecione a planilha Excel para gerar o arquivo .txt de importação.</p>
+        
+        <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
+        <div id="mensagem"></div>
+    </div>
+
+    <script>
+        // Funções utilitárias para o layout posicional
+        const formatarTexto = (texto, tamanho) => {
+            if (!texto) return ''.padEnd(tamanho, ' ');
+            let formatado = texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+            formatado = formatado.replace(/[^A-Z0-9 ]/g, ''); // Remove acentos e caracteres especiais
+            return formatado.substring(0, tamanho).padEnd(tamanho, ' ');
+        };
+
+        const formatarMoeda = (valor, tamanho) => {
+            if (!valor) return ''.padStart(tamanho, '0');
+            const emCentavos = Math.round(parseFloat(valor) * 100).toString();
+            return emCentavos.padStart(tamanho, '0');
+        };
+
+        // Evento de leitura do arquivo
+        document.getElementById('uploadPlanilha').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const primeiraAba = workbook.SheetNames[0];
+                    const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba]);
+                    
+                    gerarArquivoTxt(linhas);
+                } catch (error) {
+                    document.getElementById('mensagem').innerText = 'Erro ao ler a planilha. Verifique o arquivo.';
+                    document.getElementById('mensagem').style.color = 'red';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // Lógica principal de montagem do TXT
+        function gerarArquivoTxt(linhas) {
+            const anoBase = "2023"; // Ajuste conforme a declaração
+            const cnpjDeclarante = "31975245000168"; // CNPJ da WWM
+            
+            let conteudoTxt = "";
+
+            // 1. HEADER E R01 (Estou usando os dados fixos do arquivo que você enviou como base)
+            conteudoTxt += `DIMOB       ${anoBase}17250319752450001682280WWM HOLDING, EMPREENDIMENTOS E ADMINISTRACAO PATRIMONIAL LIMPA030061772010002991330287000000000000000000066300701207698                                                                                       \r\n`;
+            conteudoTxt += `R01${cnpjDeclarante}${anoBase}0000000000000000000000WWM HOLDING, EMPREENDIMENTOS E ADMINISTRACAO PATRIMONIAL LIM02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE                                                      PA0427BELEM            \r\n`;
+
+            // 2. REGISTROS R02 (Iterando sobre as linhas do seu Excel)
+            linhas.forEach((linha, index) => {
+                const sequencial = (index + 1).toString().padStart(6, '0');
+                
+                // Mapeamento esperado das colunas do Excel
+                const cpfLocador = formatarTexto(linha['CPF_LOCADOR'], 14);
+                const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
+                const cpfLocatario = formatarTexto(linha['CPF_LOCATARIO'], 14);
+                const dataContrato = formatarTexto(linha['DATA_CONTRATO'], 8); // Formato DDMMAAAA
+                const aluguelJan = formatarMoeda(linha['ALUGUEL_JAN'], 14);
+                
+                // Variáveis fixas do seu escopo local
+                const codMunicipio = "0427"; // Belém
+                const uf = "PA";
+
+                // Construção posicional da linha (Este é o esqueleto, precisa adicionar todas as posições do manual)
+                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfLocador}${nomeLocador}${cpfLocatario}${dataContrato}${aluguelJan}/*...preencher com demais colunas do manual...*//${codMunicipio}${uf}`;
+                
+                conteudoTxt += linhaR02.padEnd(500, ' ') + '\r\n'; // Força o tamanho da linha (ajustar p/ layout exato)
+            });
+
+            // 3. TRAILER T9
+            const totalRegistros = (linhas.length + 2).toString().padStart(9, '0'); // +2 por conta do Header e R01
+            conteudoTxt += `T9${cnpjDeclarante}${totalRegistros}\r\n`;
+
+            // 4. DOWNLOAD AUTOMÁTICO
+            const blob = new Blob([conteudoTxt], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `DIMOB_IMPORTACAO.txt`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            document.getElementById('mensagem').innerText = 'Sucesso! O arquivo .txt foi baixado.';
+            document.getElementById('mensagem').style.color = 'green';
+        }
+    </script>
+</body>
+</html>
