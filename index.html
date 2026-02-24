@@ -6,64 +6,18 @@
     <title>Gerador DIMOB Multiempresas</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            padding: 40px; 
-            max-width: 800px; 
-            margin: auto; 
-            background-color: #f0f2f5;
-        }
+        body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: auto; background-color: #f0f2f5; }
         h1 { color: #1a73e8; margin-bottom: 5px; }
         p { color: #555; margin-bottom: 25px; line-height: 1.5; }
-        
-        .container { 
-            border: 1px solid #ccc; 
-            padding: 30px; 
-            border-radius: 8px; 
-            background: #ffffff; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
+        .container { border: 1px solid #ccc; padding: 30px; border-radius: 8px; background: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
         .form-group { display: flex; flex-direction: column; }
         .form-group.full-width { grid-column: span 2; }
         label { font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333; }
-        input[type="text"], input[type="number"] {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        input[type="text"]:focus, input[type="number"]:focus {
-            outline: none;
-            border-color: #1a73e8;
-            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
-        }
-
-        .upload-section {
-            background-color: #f8f9fa;
-            border: 2px dashed #abb8c3;
-            padding: 20px;
-            border-radius: 6px;
-            text-align: center;
-        }
+        input[type="text"], input[type="number"] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        .upload-section { background-color: #f8f9fa; border: 2px dashed #abb8c3; padding: 20px; border-radius: 6px; text-align: center; }
         input[type="file"] { margin: 10px auto; display: block; }
-        
-        #mensagem { 
-            margin-top: 20px; 
-            padding: 15px;
-            border-radius: 5px;
-            display: none;
-            font-size: 14px;
-            line-height: 1.5;
-        }
+        #mensagem { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 14px; line-height: 1.5; }
         .erro { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
         .sucesso { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
     </style>
@@ -72,7 +26,7 @@
 
     <div class="container">
         <h1>Gerador DIMOB</h1>
-        <p>Preencha os dados e suba sua planilha. <strong>Atenção ao Ano:</strong> Informe o ano em que os negócios ocorreram (Ex: 2024). O sistema gerará o cabeçalho automaticamente para entrega no ano seguinte (+1).</p>
+        <p>Preencha os dados e suba sua planilha. <strong>Atenção ao Ano:</strong> Informe o ano em que os negócios ocorreram (Ex: 2024).</p>
         
         <div class="form-grid">
             <div class="form-group">
@@ -136,7 +90,7 @@
             const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
 
             if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw) {
-                exibirMensagem('<strong>Atenção:</strong> Preencha corretamente o Ano, CNPJ (14 dígitos) e Razão Social antes de selecionar a planilha.', 'erro');
+                exibirMensagem('<strong>Atenção:</strong> Preencha corretamente o Ano, CNPJ e Razão Social.', 'erro');
                 this.value = ''; 
                 return;
             }
@@ -151,35 +105,13 @@
                     
                     gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw);
                 } catch (error) {
-                    exibirMensagem('Erro ao ler a planilha. Verifique se o formato é um Excel válido.', 'erro');
+                    exibirMensagem('Erro ao ler a planilha.', 'erro');
                 }
             };
             reader.readAsArrayBuffer(file);
         });
 
         function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm) {
-            const errosValidacao = [];
-
-            linhas.forEach((linha, index) => {
-                const numLinhaExcel = index + 2; 
-                const docLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']);
-                const docLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']);
-
-                if (docLocador.length !== 11 && docLocador.length !== 14) {
-                    errosValidacao.push(`Linha ${numLinhaExcel}: Documento do Locador inválido (${docLocador.length} dígitos).`);
-                }
-                if (docLocatario.length !== 11 && docLocatario.length !== 14) {
-                    errosValidacao.push(`Linha ${numLinhaExcel}: Documento do Locatário inválido (${docLocatario.length} dígitos).`);
-                }
-            });
-
-            if (errosValidacao.length > 0) {
-                const listaErros = errosValidacao.join('<br>• ');
-                exibirMensagem(`<strong>Erro de Validação:</strong><br><br>• ${listaErros}`, 'erro');
-                document.getElementById('uploadPlanilha').value = '';
-                return; 
-            }
-
             const anoBase = anoForm;
             const anoEntrega = (parseInt(anoBase) + 1).toString();
             const cnpjDeclarante = limparDocumento(cnpjForm).padStart(14, '0');
@@ -187,21 +119,20 @@
             
             let conteudoTxt = "";
 
-            // --- REGISTRO HEADER (T00) - Forçado para EXATOS 356 caracteres ---
+            // HEADER - Exatos 151 caracteres
             const restoHeader = "PA030061772010002991330287000000000000000000066300701207698";
-            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`.padEnd(356, ' ');
+            const linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`;
             conteudoTxt += linhaHeader + '\r\n';
 
-            // --- REGISTRO R01 (Declarante) - Forçado para EXATOS 260 caracteres ---
+            // R01 - Exatos 253 caracteres
             const restoR01 = "02991330287AVENIDA ALMIRANTE BARROSO, NO 700, SALA 201, EDIFICIO ASPEB OFFICE                                                      PA0427BELEM            ";
-            const linhaR01 = `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}`.padEnd(260, ' ');
+            const linhaR01 = `R01${cnpjDeclarante}${anoBase}0000000000000000000000${razaoSocial}${restoR01}`;
             conteudoTxt += linhaR01 + '\r\n';
 
-            // --- REGISTROS R02 (Locações) - Forçado para EXATOS 783 caracteres ---
+            // R02 - Exatos 783 caracteres
             linhas.forEach((linha, index) => {
                 const sequencial = (index + 1).toString().padStart(7, '0');
                 
-                // O layout exige que os documentos sejam alinhados à esquerda e completados com espaços à direita
                 const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padEnd(14, ' ');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
                 const cpfCnpjLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']).padEnd(14, ' ');
@@ -225,18 +156,17 @@
                 const nomeMunicipio = formatarTexto(linha['MUNICIPIO'] || 'BELEM', 20);
                 const uf = formatarTexto(linha['UF'] || 'PA', 2);
 
-                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${tipoImovel}${endereco}${cep}${codMunicipio}${nomeMunicipio}${uf}`.padEnd(783, ' ');
+                const linhaR02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}${tipoImovel}${endereco}${cep}${codMunicipio}${nomeMunicipio}${uf}`;
                 
                 conteudoTxt += linhaR02 + '\r\n'; 
             });
 
-            // --- REGISTRO T9 (Trailer) - Forçado para EXATOS 125 caracteres ---
+            // T9 - Exatos 28 caracteres
             const totalRegistros = (linhas.length + 2).toString().padStart(8, '0');
-            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`.padEnd(125, ' ');
+            const linhaT9 = `T9${cnpjDeclarante}${anoBase}${totalRegistros}`;
             conteudoTxt += linhaT9 + '\r\n';
 
-            // Disparo de Download
-            const blob = new Blob([conteudoTxt], { type: "text/plain" });
+            const blob = new Blob([conteudoTxt], { type: "text/plain;charset=windows-1252" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -245,7 +175,7 @@
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Pronto!</strong> Arquivo gerado com a estrutura milimétrica corrigida. Pode validar.', 'sucesso');
+            exibirMensagem('<strong>Arquivo gerado!</strong> Por favor, siga a Regra de Ouro abaixo antes de importar.', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
