@@ -25,8 +25,8 @@
 <body>
 
     <div class="container">
-        <h1>Gerador DIMOB (Layout Validado)</h1>
-        <p>Preencha os dados da administradora e suba a planilha de locatários. O arquivo gerado utiliza o layout simplificado e já pode ser importado diretamente no PGD.</p>
+        <h1>Gerador DIMOB Oficial</h1>
+        <p>Preencha os dados da administradora e suba a planilha de locatários. Todos os campos abaixo são validados pelo PGD da Receita Federal.</p>
         
         <div class="form-grid">
             <div class="form-group">
@@ -35,11 +35,19 @@
             </div>
             <div class="form-group">
                 <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
-                <input type="text" id="inputCnpj" placeholder="Apenas números" maxlength="14">
+                <input type="text" id="inputCnpj" placeholder="Apenas números (14 dígitos)" maxlength="14">
             </div>
             <div class="form-group full-width">
                 <label for="inputRazaoSocial">Razão Social da Empresa Declarante:</label>
-                <input type="text" id="inputRazaoSocial" placeholder="Ex: WWM HOLDING..." maxlength="60">
+                <input type="text" id="inputRazaoSocial" placeholder="Ex: DMD EMPREENDIMENTOS LTDA" maxlength="60">
+            </div>
+            <div class="form-group">
+                <label for="inputCpfResp">CPF do Responsável:</label>
+                <input type="text" id="inputCpfResp" placeholder="Apenas números (11 dígitos)" maxlength="11">
+            </div>
+            <div class="form-group">
+                <label for="inputEndereco">Endereço Completo da Empresa:</label>
+                <input type="text" id="inputEndereco" placeholder="Rua, Número, Bairro" maxlength="120">
             </div>
         </div>
 
@@ -85,12 +93,15 @@
 
             document.getElementById('mensagem').style.display = 'none';
 
+            // Validação da Tela
             const ano = document.getElementById('inputAno').value;
             const cnpjRaw = document.getElementById('inputCnpj').value;
             const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
+            const cpfRespRaw = document.getElementById('inputCpfResp').value;
+            const enderecoRaw = document.getElementById('inputEndereco').value;
 
-            if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw) {
-                exibirMensagem('<strong>Atenção:</strong> Preencha corretamente o Ano, CNPJ e Razão Social.', 'erro');
+            if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw || limparDocumento(cpfRespRaw).length !== 11 || !enderecoRaw) {
+                exibirMensagem('<strong>Atenção:</strong> Preencha todos os campos corretamente. O CNPJ precisa ter 14 dígitos e o CPF 11 dígitos.', 'erro');
                 this.value = ''; 
                 return;
             }
@@ -103,7 +114,7 @@
                     const primeiraAba = workbook.SheetNames[0];
                     const linhas = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: "" });
                     
-                    gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw);
+                    gerarArquivoTxt(linhas, ano, cnpjRaw, razaoSocialRaw, cpfRespRaw, enderecoRaw);
                 } catch (error) {
                     exibirMensagem('Erro ao ler a planilha.', 'erro');
                 }
@@ -111,27 +122,28 @@
             reader.readAsArrayBuffer(file);
         });
 
-        function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm) {
+        function gerarArquivoTxt(linhas, anoForm, cnpjForm, razaoSocialForm, cpfForm, enderecoForm) {
             const anoBase = anoForm;
             const cnpjDeclarante = limparDocumento(cnpjForm).padEnd(14, ' ');
             const razaoSocial = formatarTexto(razaoSocialForm, 60);
+            const cpfResponsavel = limparDocumento(cpfForm).padStart(11, '0');
+            const enderecoDeclarante = formatarTexto(enderecoForm, 120);
             
             let conteudoTxt = "";
 
-            // HEADER (T00) - Idêntico ao dimob_2024.txt (Apenas a palavra DIMOB preenchida com espaços)
+            // HEADER (T00) - 356 espaços vazios após a palavra DIMOB
             conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
 
-            // DECLARANTE (R01) - Idêntico ao dimob_2024.txt
+            // DECLARANTE (R01) - Injeção do CPF e Endereço Reais
             const zerosFiller = "0".repeat(22);
-            const cpfResponsavel = "00000000000"; // Filler obrigatório do layout simplificado
-            const enderecoDeclarante = formatarTexto("ENDERECO PADRAO", 120);
-            const r01 = `R01${cnpjDeclarante}${anoBase}${zerosFiller}${razaoSocial}${cpfResponsavel}${enderecoDeclarante}PA0427${" ".repeat(30)}`;
+            const codigoMunicipioPadrao = "0427"; // Fixado Belém
+            const ufPadrao = "PA";
+            const r01 = `R01${cnpjDeclarante}${anoBase}${zerosFiller}${razaoSocial}${cpfResponsavel}${enderecoDeclarante}${ufPadrao}${codigoMunicipioPadrao}${" ".repeat(30)}`;
             conteudoTxt += r01 + "\r\n";
 
-            // LOCAÇÕES (R02) - Idêntico ao dimob_2024.txt
+            // LOCAÇÕES (R02)
             linhas.forEach((linha, index) => {
-                // Sequencial preenchido com espaços à direita (Ex: "1    ")
-                const sequencial = (index + 1).toString().padEnd(5, ' ');
+                const sequencial = (index + 1).toString().padEnd(7, ' ');
                 
                 const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padEnd(14, ' ');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
@@ -150,20 +162,20 @@
 
                 const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
                 const cep = formatarTexto(limparDocumento(linha['CEP']), 8);
-                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || '0427', 4); // Padrão Belém
+                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || codigoMunicipioPadrao, 4); 
                 const munVazio = " ".repeat(20);
-                const uf = formatarTexto(linha['UF'] || 'PA', 2);
-                const fillerR02 = " ".repeat(10);
+                const uf = formatarTexto(linha['UF'] || ufPadrao, 2);
 
-                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
+                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}`;
                 
                 conteudoTxt += r02 + "\r\n"; 
             });
 
-            // TRAILER (T9) - Idêntico ao dimob_2024.txt (Apenas a sigla T9)
-            conteudoTxt += "T9\r\n";
+            // TRAILER (T9)
+            const totalLinhas = (linhas.length + 2).toString().padStart(8, '0');
+            conteudoTxt += `T9${cnpjDeclarante}${anoBase}${totalLinhas}\r\n`;
 
-            // Download limpo
+            // Download
             const blob = new Blob([conteudoTxt], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -173,7 +185,7 @@
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Sucesso!</strong> O arquivo foi gerado com a mesma estrutura simplificada do dimob_2024.txt. Pode validar no PGD.', 'sucesso');
+            exibirMensagem('<strong>Sucesso!</strong> Arquivo gerado com os dados essenciais para o PGD. Pode validar.', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
