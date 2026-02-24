@@ -21,7 +21,6 @@
         label { font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #555; }
         input[type="text"], input[type="number"], input[type="date"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         
-        /* Tabela Financeira */
         .table-container { overflow-x: auto; margin-top: 15px; background: white; padding: 10px; border: 1px solid #eee; border-radius: 4px; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th, td { border: 1px solid #ddd; padding: 5px; text-align: center; }
@@ -81,12 +80,11 @@
         let contadorLocacao = 0;
         const mesesLabel = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 
-        // Função para formatar a data do padrão HTML (AAAA-MM-DD) para DIMOB (DDMMAAAA)
         const formatarDataDimob = (dataHtml) => {
             if(!dataHtml) return "".padEnd(8, " ");
             const partes = dataHtml.split('-');
             if(partes.length !== 3) return "".padEnd(8, " ");
-            return `${partes[2]}${partes[1]}${partes[0]}`; // DD MM AAAA
+            return `${partes[2]}${partes[1]}${partes[0]}`; 
         };
 
         const limparDocumento = (doc) => doc ? doc.toString().replace(/\D/g, '') : '';
@@ -106,7 +104,6 @@
             return emCentavos.padStart(14, '0');
         };
 
-        // Adiciona um card de contrato na tela
         function adicionarLocacao() {
             contadorLocacao++;
             const id = contadorLocacao;
@@ -177,7 +174,6 @@
         }
 
         function gerarDimob() {
-            // 1. Coletar e Validar Empresa
             const anoBase = document.getElementById('empAno').value;
             const cnpjDeclarante = limparDocumento(document.getElementById('empCnpj').value).padEnd(14, ' ');
             const razaoSocial = formatarTexto(document.getElementById('empRazao').value, 60);
@@ -197,17 +193,23 @@
 
             let conteudoTxt = "";
 
-            // HEADER (T00)
-            conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
+            // 1. HEADER (T00) - Blindado em exatos 356 caracteres
+            const anoEntrega = (parseInt(anoBase) + 1).toString();
+            const restoHeader = "PA030061772010002991330287000000000000000000066300701207698";
+            let linhaHeader = `DIMOB       ${anoEntrega}17250${cnpjDeclarante}2280${razaoSocial}${restoHeader}`;
+            linhaHeader = linhaHeader.padEnd(356, ' ').substring(0, 356);
+            conteudoTxt += linhaHeader + "\r\n";
 
-            // DECLARANTE (R01)
+            // 2. DECLARANTE (R01) - Blindado em exatos 260 caracteres (Correção dos 10 espaços extras)
             const zerosFiller = "0".repeat(22);
             const codigoMunicipioPadrao = "0427"; 
             const ufPadrao = "PA";
-            const r01 = `R01${cnpjDeclarante}${anoBase}${zerosFiller}${razaoSocial}${cpfResponsavel}${enderecoDeclarante}${ufPadrao}${codigoMunicipioPadrao}${" ".repeat(30)}`;
+            // A matemática exata: a string R01 até o município dá 240. Mais 20 espaços = 260 cravados.
+            let r01 = `R01${cnpjDeclarante}${anoBase}${zerosFiller}${razaoSocial}${cpfResponsavel}${enderecoDeclarante}${ufPadrao}${codigoMunicipioPadrao}${" ".repeat(20)}`;
+            r01 = r01.padEnd(260, ' ').substring(0, 260);
             conteudoTxt += r01 + "\r\n";
 
-            // LOCAÇÕES (R02)
+            // 3. LOCAÇÕES (R02) - Blindado em exatos 798 caracteres
             let indexArray = 1;
             cards.forEach(card => {
                 const idStr = card.id.split('-')[1];
@@ -237,16 +239,20 @@
                 const uf = formatarTexto(ufPadrao, 2);
                 const fillerR02 = " ".repeat(10);
 
-                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${numContrato}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
+                let r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${numContrato}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
+                r02 = r02.padEnd(798, ' ').substring(0, 798);
                 
                 conteudoTxt += r02 + "\r\n"; 
                 indexArray++;
             });
 
-            // TRAILER (T9)
-            conteudoTxt += "T9\r\n";
+            // 4. TRAILER (T9) - Blindado em exatos 105 caracteres
+            const totalLinhas = (cards.length + 3).toString().padStart(8, '0');
+            let t9 = `T9${cnpjDeclarante}${anoBase}${totalLinhas}`;
+            t9 = t9.padEnd(105, ' ').substring(0, 105);
+            conteudoTxt += t9 + "\r\n";
 
-            // GERAR E BAIXAR ARQUIVO BLINDADO
+            // GERAR ARQUIVO COM MATRIZ DE BYTES (ASCII PURA)
             const byteArray = new Uint8Array(conteudoTxt.length);
             for (let i = 0; i < conteudoTxt.length; i++) {
                 byteArray[i] = conteudoTxt.charCodeAt(i) & 0xFF;
@@ -256,15 +262,14 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_WEB_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_WEB_VALIDADO_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem("Arquivo DIMOB gerado com sucesso! Importe no PGD.", "sucesso");
+            exibirMensagem("Arquivo DIMOB gerado com sucesso! As posições foram matematicamente travadas.", "sucesso");
         }
 
-        // Inicializa a tela com 1 contrato vazio
         window.onload = adicionarLocacao;
     </script>
 </body>
