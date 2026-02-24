@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador DIMOB Simplificado</title>
+    <title>Gerador DIMOB Oficial</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: auto; background-color: #f0f2f5; }
@@ -25,8 +25,8 @@
 <body>
 
     <div class="container">
-        <h1>Gerador DIMOB Oficial</h1>
-        <p>Preencha os dados da administradora e suba a planilha de locatários. Todos os campos abaixo são validados pelo PGD da Receita Federal.</p>
+        <h1>Gerador DIMOB Definitivo</h1>
+        <p>Preencha os dados da administradora e suba a planilha de locatários.</p>
         
         <div class="form-grid">
             <div class="form-group">
@@ -72,6 +72,7 @@
             return formatado.substring(0, tamanho).padEnd(tamanho, ' ');
         };
 
+        // CORREÇÃO AQUI: Mudança para garantir que o preenchimento de zeros respeite o tamanho estrito (15 dígitos) exigido pela Receita
         const formatarMoeda = (valor, tamanho) => {
             if (!valor) return ''.padStart(tamanho, '0');
             let numero = typeof valor === 'string' ? parseFloat(valor.replace(',', '.')) : parseFloat(valor);
@@ -93,7 +94,6 @@
 
             document.getElementById('mensagem').style.display = 'none';
 
-            // Validação da Tela
             const ano = document.getElementById('inputAno').value;
             const cnpjRaw = document.getElementById('inputCnpj').value;
             const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
@@ -101,7 +101,7 @@
             const enderecoRaw = document.getElementById('inputEndereco').value;
 
             if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw || limparDocumento(cpfRespRaw).length !== 11 || !enderecoRaw) {
-                exibirMensagem('<strong>Atenção:</strong> Preencha todos os campos corretamente. O CNPJ precisa ter 14 dígitos e o CPF 11 dígitos.', 'erro');
+                exibirMensagem('<strong>Atenção:</strong> Preencha todos os campos corretamente.', 'erro');
                 this.value = ''; 
                 return;
             }
@@ -131,19 +131,19 @@
             
             let conteudoTxt = "";
 
-            // HEADER (T00) - 356 espaços vazios após a palavra DIMOB
+            // HEADER (T00)
             conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
 
-            // DECLARANTE (R01) - Injeção do CPF e Endereço Reais
+            // DECLARANTE (R01)
             const zerosFiller = "0".repeat(22);
-            const codigoMunicipioPadrao = "0427"; // Fixado Belém
+            const codigoMunicipioPadrao = "0427"; 
             const ufPadrao = "PA";
             const r01 = `R01${cnpjDeclarante}${anoBase}${zerosFiller}${razaoSocial}${cpfResponsavel}${enderecoDeclarante}${ufPadrao}${codigoMunicipioPadrao}${" ".repeat(30)}`;
             conteudoTxt += r01 + "\r\n";
 
             // LOCAÇÕES (R02)
             linhas.forEach((linha, index) => {
-                const sequencial = (index + 1).toString().padEnd(7, ' ');
+                const sequencial = (index + 1).toString().padEnd(6, ' ');
                 
                 const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padEnd(14, ' ');
                 const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
@@ -154,10 +154,11 @@
                 const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
                 let valoresFinanceiros = "";
 
+                // CORREÇÃO AQUI: Passando para os 15 dígitos oficiais
                 meses.forEach(mes => {
-                    valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
-                    valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 14);
-                    valoresFinanceiros += formatarMoeda(linha[`IRRF_${mes}`], 14);
+                    valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 15);
+                    valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 15);
+                    valoresFinanceiros += formatarMoeda(linha[`IRRF_${mes}`], 15);
                 });
 
                 const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
@@ -165,27 +166,26 @@
                 const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || codigoMunicipioPadrao, 4); 
                 const munVazio = " ".repeat(20);
                 const uf = formatarTexto(linha['UF'] || ufPadrao, 2);
+                const fillerR02 = " ".repeat(10);
 
-                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}`;
+                const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
                 
                 conteudoTxt += r02 + "\r\n"; 
             });
 
             // TRAILER (T9)
-            const totalLinhas = (linhas.length + 2).toString().padStart(8, '0');
-            conteudoTxt += `T9${cnpjDeclarante}${anoBase}${totalLinhas}\r\n`;
+            conteudoTxt += "T9\r\n";
 
-            // Download
             const blob = new Blob([conteudoTxt], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_${limparDocumento(cnpjDeclarante)}_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_FINAL_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Sucesso!</strong> Arquivo gerado com os dados essenciais para o PGD. Pode validar.', 'sucesso');
+            exibirMensagem('<strong>Pronto!</strong> Este é o arquivo definitivo. Desejo sucesso na validação!', 'sucesso');
             document.getElementById('uploadPlanilha').value = ''; 
         }
     </script>
