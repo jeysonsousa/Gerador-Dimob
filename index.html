@@ -3,107 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auditor e Gerador DIMOB</title>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <title>DIMOB Web Cloud</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 30px; margin: auto; background-color: #f4f6f9; color: #333; }
-        h1 { color: #1a73e8; margin-bottom: 5px; }
-        .container { border: 1px solid #ccc; padding: 30px; border-radius: 8px; background: #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; margin: auto; background-color: #f0f2f5; color: #333; max-width: 1000px; }
+        h1 { color: #1a73e8; margin-bottom: 5px; text-align: center; }
+        p.subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+        
+        .container { background: #ffffff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border-top: 4px solid #1a73e8; }
+        .card-locacao { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; position: relative; }
+        .card-header { font-size: 18px; font-weight: bold; color: #1a73e8; margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        .btn-remover { position: absolute; top: 15px; right: 20px; background: #d32f2f; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
         .form-group { display: flex; flex-direction: column; }
-        .form-group.full-width { grid-column: span 2; }
-        label { font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-        input[type="text"], input[type="number"] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        .upload-section { background-color: #eef2f6; border: 2px dashed #90a4ae; padding: 20px; border-radius: 6px; text-align: center; cursor: pointer;}
-        input[type="file"] { margin: 10px auto; display: block; }
+        .full-width { grid-column: 1 / -1; }
         
-        /* Estilos da Tabela de Preview */
-        #previewArea { display: none; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #1a73e8; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .alerta-vazio { color: #d32f2f; font-weight: bold; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #555; }
+        input[type="text"], input[type="number"], input[type="date"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         
-        .btn-gerar { background-color: #2e7d32; color: white; padding: 15px 25px; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.3s;}
-        .btn-gerar:hover { background-color: #1b5e20; }
-        #mensagem { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 14px; }
+        /* Tabela Financeira */
+        .table-container { overflow-x: auto; margin-top: 15px; background: white; padding: 10px; border: 1px solid #eee; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid #ddd; padding: 5px; text-align: center; }
+        th { background-color: #e3f2fd; color: #1a73e8; }
+        input.financeiro { width: 80px; text-align: right; border: 1px solid #ccc; padding: 4px; border-radius: 3px; }
+
+        .btn-replicar { background: #ff9800; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-bottom: 10px; font-weight: bold;}
+        .btn-add { background: #1a73e8; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 15px; font-weight: bold; width: 100%; margin-bottom: 20px;}
+        .btn-gerar { background: #2e7d32; color: white; border: none; padding: 15px 20px; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; transition: 0.3s; }
+        .btn-gerar:hover { background: #1b5e20; }
+        
+        #mensagem { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-size: 14px; font-weight: bold; text-align: center; }
         .erro { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
         .sucesso { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
     </style>
 </head>
 <body>
 
+    <h1>DIMOB Web Cloud</h1>
+    <p class="subtitle">Preencha os dados diretamente na tela e gere o arquivo validador oficial.</p>
+
     <div class="container">
-        <h1>Auditor DIMOB</h1>
-        <p>Preencha os dados e suba a planilha. Uma prévia será gerada para sua conferência antes de criar o arquivo TXT.</p>
-        
+        <div class="card-header">1. Dados da Empresa (Administradora / Imobiliária)</div>
         <div class="form-grid">
             <div class="form-group">
-                <label for="inputAno">Ano Calendário:</label>
-                <input type="number" id="inputAno" value="2024" min="2000" max="2099">
+                <label>Ano Base (Ex: 2024):</label>
+                <input type="number" id="empAno" value="2024">
             </div>
             <div class="form-group">
-                <label for="inputCnpj">CNPJ da Empresa Declarante:</label>
-                <input type="text" id="inputCnpj" placeholder="14 dígitos" maxlength="14">
+                <label>CNPJ (Somente números):</label>
+                <input type="text" id="empCnpj" maxlength="14" placeholder="14 dígitos">
             </div>
             <div class="form-group full-width">
-                <label for="inputRazaoSocial">Razão Social da Empresa Declarante:</label>
-                <input type="text" id="inputRazaoSocial" placeholder="Ex: DMD EMPREENDIMENTOS LTDA" maxlength="60">
+                <label>Razão Social:</label>
+                <input type="text" id="empRazao" maxlength="60" placeholder="Ex: DMD EMPREENDIMENTOS">
             </div>
             <div class="form-group">
-                <label for="inputCpfResp">CPF do Responsável (Obrigatório PGD):</label>
-                <input type="text" id="inputCpfResp" placeholder="11 dígitos" maxlength="11">
+                <label>CPF do Responsável:</label>
+                <input type="text" id="empCpfResp" maxlength="11" placeholder="11 dígitos">
             </div>
-            <div class="form-group">
-                <label for="inputEndereco">Endereço da Empresa (Obrigatório PGD):</label>
-                <input type="text" id="inputEndereco" placeholder="Rua, Número, Bairro" maxlength="120">
+            <div class="form-group full-width">
+                <label>Endereço Completo:</label>
+                <input type="text" id="empEndereco" maxlength="120" placeholder="Rua, Número, Bairro">
             </div>
         </div>
-
-        <div class="upload-section">
-            <label style="font-size: 16px; color: #1a73e8; font-weight: bold;">Selecione a Planilha (.xlsx)</label>
-            <input type="file" id="uploadPlanilha" accept=".xlsx, .xls, .csv">
-        </div>
-
-        <div id="mensagem"></div>
     </div>
 
-    <div class="container" id="previewArea">
-        <h2 style="color: #1a73e8;">Prévia dos Dados Lidos (Auditoria)</h2>
-        <p>Verifique se não há campos em branco marcados em vermelho. Se tudo estiver correto, clique no botão ao final da página.</p>
-        
-        <div style="overflow-x: auto;">
-            <table id="tabelaPreview">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>CPF/CNPJ Locador</th>
-                        <th>Nome Locador</th>
-                        <th>CPF/CNPJ Locatário</th>
-                        <th>Nome Locatário</th>
-                        <th>Nº Contrato</th>
-                        <th>Data Contrato</th>
-                        <th>Endereço Imóvel</th>
-                    </tr>
-                </thead>
-                <tbody id="corpoTabela">
-                    </tbody>
-            </table>
-        </div>
+    <div id="areaLocacoes"></div>
 
-        <button class="btn-gerar" id="btnGerarTxt">Tudo certo! Baixar Arquivo TXT (DIMOB)</button>
-    </div>
+    <button class="btn-add" onclick="adicionarLocacao()">+ Adicionar Novo Contrato de Locação</button>
+
+    <button class="btn-gerar" onclick="gerarDimob()">Gerar Arquivo DIMOB para o PGD</button>
+
+    <div id="mensagem"></div>
 
     <script>
-        // Variável global para guardar os dados lidos do Excel e aguardar o clique do botão
-        let dadosGlobaisPlanilha = [];
+        let contadorLocacao = 0;
+        const mesesLabel = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 
-        const limparDocumento = (doc) => {
-            if (!doc) return '';
-            return doc.toString().replace(/\D/g, '');
+        // Função para formatar a data do padrão HTML (AAAA-MM-DD) para DIMOB (DDMMAAAA)
+        const formatarDataDimob = (dataHtml) => {
+            if(!dataHtml) return "".padEnd(8, " ");
+            const partes = dataHtml.split('-');
+            if(partes.length !== 3) return "".padEnd(8, " ");
+            return `${partes[2]}${partes[1]}${partes[0]}`; // DD MM AAAA
         };
 
+        const limparDocumento = (doc) => doc ? doc.toString().replace(/\D/g, '') : '';
+        
         const formatarTexto = (texto, tamanho) => {
             if (!texto) return ''.padEnd(tamanho, ' ');
             let formatado = texto.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
@@ -111,109 +98,106 @@
             return formatado.substring(0, tamanho).padEnd(tamanho, ' ');
         };
 
-        const formatarMoeda = (valor, tamanho) => {
-            if (!valor) return ''.padStart(tamanho, '0');
-            let numero = typeof valor === 'string' ? parseFloat(valor.replace(',', '.')) : parseFloat(valor);
+        const formatarMoedaDimob = (valorForm) => {
+            if (!valorForm || valorForm === "") return ''.padStart(14, '0');
+            let numero = parseFloat(valorForm.replace(',', '.'));
             if (isNaN(numero)) numero = 0;
             const emCentavos = Math.round(numero * 100).toString();
-            return emCentavos.padStart(tamanho, '0');
+            return emCentavos.padStart(14, '0');
         };
 
-        const exibirMensagem = (html, tipo) => {
-            const div = document.getElementById('mensagem');
-            div.style.display = 'block';
-            div.className = tipo;
-            div.innerHTML = html;
-        };
+        // Adiciona um card de contrato na tela
+        function adicionarLocacao() {
+            contadorLocacao++;
+            const id = contadorLocacao;
+            const div = document.createElement('div');
+            div.className = 'card-locacao';
+            div.id = `locacao-${id}`;
+            
+            let tabelaMeses = `<tr><th>Mês</th><th>Rendimento Bruto (R$)</th><th>Comissão Retida (R$)</th><th>IRRF Retido (R$)</th></tr>`;
+            mesesLabel.forEach((mes, idx) => {
+                tabelaMeses += `
+                <tr>
+                    <td><strong>${mes}</strong></td>
+                    <td><input type="text" class="financeiro aluguel-${id}" id="aluguel-${id}-${idx}" placeholder="0,00"></td>
+                    <td><input type="text" class="financeiro comissao-${id}" id="comissao-${id}-${idx}" placeholder="0,00"></td>
+                    <td><input type="text" class="financeiro irrf-${id}" id="irrf-${id}-${idx}" placeholder="0,00"></td>
+                </tr>`;
+            });
 
-        const checarVazio = (valor) => {
-            if (!valor || valor.toString().trim() === '') {
-                return `<span class="alerta-vazio">NÃO INFORMADO</span>`;
+            div.innerHTML = `
+                <div class="card-header">Contrato de Locação #${id}</div>
+                <button class="btn-remover" onclick="removerLocacao(${id})">X Remover</button>
+                
+                <div class="form-grid">
+                    <div class="form-group"><label>CPF/CNPJ Locador (Dono):</label><input type="text" id="locadorDoc-${id}" maxlength="14"></div>
+                    <div class="form-group full-width"><label>Nome do Locador:</label><input type="text" id="locadorNome-${id}" maxlength="60"></div>
+                    
+                    <div class="form-group"><label>CPF/CNPJ Locatário (Inquilino):</label><input type="text" id="locatarioDoc-${id}" maxlength="14"></div>
+                    <div class="form-group full-width"><label>Nome do Locatário:</label><input type="text" id="locatarioNome-${id}" maxlength="60"></div>
+                    
+                    <div class="form-group"><label>Número do Contrato:</label><input type="text" id="numContrato-${id}" maxlength="6"></div>
+                    <div class="form-group"><label>Data do Contrato:</label><input type="date" id="dataContrato-${id}"></div>
+                    
+                    <div class="form-group full-width"><label>Endereço do Imóvel:</label><input type="text" id="imovelEnd-${id}" maxlength="60"></div>
+                    <div class="form-group"><label>CEP do Imóvel:</label><input type="text" id="imovelCep-${id}" maxlength="8"></div>
+                </div>
+
+                <div class="table-container">
+                    <button class="btn-replicar" onclick="replicarValores(${id})">⬇️ Copiar valores de JANEIRO para todos os meses</button>
+                    <table>${tabelaMeses}</table>
+                </div>
+            `;
+            document.getElementById('areaLocacoes').appendChild(div);
+        }
+
+        function removerLocacao(id) {
+            const el = document.getElementById(`locacao-${id}`);
+            if(el) el.remove();
+        }
+
+        function replicarValores(id) {
+            const aluguelJan = document.getElementById(`aluguel-${id}-0`).value;
+            const comissaoJan = document.getElementById(`comissao-${id}-0`).value;
+            const irrfJan = document.getElementById(`irrf-${id}-0`).value;
+
+            for (let i = 1; i < 12; i++) {
+                document.getElementById(`aluguel-${id}-${i}`).value = aluguelJan;
+                document.getElementById(`comissao-${id}-${i}`).value = comissaoJan;
+                document.getElementById(`irrf-${id}-${i}`).value = irrfJan;
             }
-            return valor;
-        };
+        }
 
-        // EVENTO 1: LER PLANILHA E GERAR A PREVIEW NA TELA
-        document.getElementById('uploadPlanilha').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        function exibirMensagem(texto, tipo) {
+            const msgBox = document.getElementById('mensagem');
+            msgBox.innerHTML = texto;
+            msgBox.className = tipo;
+            msgBox.style.display = 'block';
+            setTimeout(() => { msgBox.style.display = 'none'; }, 8000);
+        }
 
-            document.getElementById('mensagem').style.display = 'none';
-            document.getElementById('previewArea').style.display = 'none';
+        function gerarDimob() {
+            // 1. Coletar e Validar Empresa
+            const anoBase = document.getElementById('empAno').value;
+            const cnpjDeclarante = limparDocumento(document.getElementById('empCnpj').value).padEnd(14, ' ');
+            const razaoSocial = formatarTexto(document.getElementById('empRazao').value, 60);
+            const cpfResponsavel = limparDocumento(document.getElementById('empCpfResp').value).padStart(11, '0');
+            const enderecoDeclarante = formatarTexto(document.getElementById('empEndereco').value, 120);
 
-            // Validação da Tela
-            const ano = document.getElementById('inputAno').value;
-            const cnpjRaw = document.getElementById('inputCnpj').value;
-            const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
-            const cpfRespRaw = document.getElementById('inputCpfResp').value;
-            const enderecoRaw = document.getElementById('inputEndereco').value;
-
-            if(!ano || limparDocumento(cnpjRaw).length !== 14 || !razaoSocialRaw || limparDocumento(cpfRespRaw).length !== 11 || !enderecoRaw) {
-                exibirMensagem('<strong>Atenção:</strong> Preencha todos os campos da empresa corretamente.', 'erro');
-                this.value = ''; 
+            if (!anoBase || cnpjDeclarante.trim().length !== 14 || cpfResponsavel.replace(/0/g,'').length === 0) {
+                exibirMensagem("Preencha corretamente os dados da Administradora (CNPJ e CPF são obrigatórios).", "erro");
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                try {
-                    const data = new Uint8Array(event.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const primeiraAba = workbook.SheetNames[0];
-                    dadosGlobaisPlanilha = XLSX.utils.sheet_to_json(workbook.Sheets[primeiraAba], { defval: "" });
-                    
-                    montarTabelaPreview(dadosGlobaisPlanilha);
-                } catch (error) {
-                    exibirMensagem('Erro ao ler a planilha.', 'erro');
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        });
+            const cards = document.querySelectorAll('.card-locacao');
+            if (cards.length === 0) {
+                exibirMensagem("Adicione pelo menos um contrato de locação.", "erro");
+                return;
+            }
 
-        function montarTabelaPreview(linhas) {
-            const tbody = document.getElementById('corpoTabela');
-            tbody.innerHTML = ''; // Limpa a tabela anterior
-
-            linhas.forEach((linha, index) => {
-                const tr = document.createElement('tr');
-                
-                tr.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${checarVazio(linha['CPF_CNPJ_LOCADOR'])}</td>
-                    <td>${checarVazio(linha['NOME_LOCADOR'])}</td>
-                    <td>${checarVazio(linha['CPF_CNPJ_LOCATARIO'])}</td>
-                    <td>${checarVazio(linha['NOME_LOCATARIO'])}</td>
-                    <td>${checarVazio(linha['NUM_CONTRATO'])}</td>
-                    <td>${checarVazio(linha['DATA_CONTRATO'])}</td>
-                    <td>${checarVazio(linha['ENDERECO_IMOVEL'])}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('previewArea').style.display = 'block';
-        }
-
-        // EVENTO 2: CLICAR NO BOTÃO PARA GERAR O ARQUIVO (Com o layout idêntico ao validado)
-        document.getElementById('btnGerarTxt').addEventListener('click', function() {
-            const ano = document.getElementById('inputAno').value;
-            const cnpjRaw = document.getElementById('inputCnpj').value;
-            const razaoSocialRaw = document.getElementById('inputRazaoSocial').value;
-            const cpfRespRaw = document.getElementById('inputCpfResp').value;
-            const enderecoRaw = document.getElementById('inputEndereco').value;
-
-            gerarArquivoTxtBytes(dadosGlobaisPlanilha, ano, cnpjRaw, razaoSocialRaw, cpfRespRaw, enderecoRaw);
-        });
-
-        function gerarArquivoTxtBytes(linhas, anoForm, cnpjForm, razaoSocialForm, cpfForm, enderecoForm) {
-            const anoBase = anoForm;
-            const cnpjDeclarante = limparDocumento(cnpjForm).padEnd(14, ' ');
-            const razaoSocial = formatarTexto(razaoSocialForm, 60);
-            const cpfResponsavel = limparDocumento(cpfForm).padStart(11, '0');
-            const enderecoDeclarante = formatarTexto(enderecoForm, 120);
-            
             let conteudoTxt = "";
 
-            // HEADER (T00) - Layout simplificado validado
+            // HEADER (T00)
             conteudoTxt += "DIMOB".padEnd(356, ' ') + "\r\n";
 
             // DECLARANTE (R01)
@@ -224,44 +208,45 @@
             conteudoTxt += r01 + "\r\n";
 
             // LOCAÇÕES (R02)
-            linhas.forEach((linha, index) => {
-                const sequencial = (index + 1).toString().padEnd(5, ' ');
+            let indexArray = 1;
+            cards.forEach(card => {
+                const idStr = card.id.split('-')[1];
                 
-                const cpfCnpjLocador = limparDocumento(linha['CPF_CNPJ_LOCADOR']).padEnd(14, ' ');
-                const nomeLocador = formatarTexto(linha['NOME_LOCADOR'], 60);
-                const cpfCnpjLocatario = limparDocumento(linha['CPF_CNPJ_LOCATARIO']).padEnd(14, ' ');
-                const nomeLocatario = formatarTexto(linha['NOME_LOCATARIO'], 60);
+                const sequencial = (indexArray).toString().padEnd(5, ' ');
                 
-                // Garantindo os 6 espaços obrigatórios do contrato
-                const numContrato = formatarTexto(linha['NUM_CONTRATO'] || '', 6);
-                const dataContrato = formatarTexto(linha['DATA_CONTRATO'], 8);
+                const cpfCnpjLocador = limparDocumento(document.getElementById(`locadorDoc-${idStr}`).value).padEnd(14, ' ');
+                const nomeLocador = formatarTexto(document.getElementById(`locadorNome-${idStr}`).value, 60);
+                const cpfCnpjLocatario = limparDocumento(document.getElementById(`locatarioDoc-${idStr}`).value).padEnd(14, ' ');
+                const nomeLocatario = formatarTexto(document.getElementById(`locatarioNome-${idStr}`).value, 60);
+                const numContrato = formatarTexto(document.getElementById(`numContrato-${idStr}`).value, 6);
                 
-                const meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+                const dataRaw = document.getElementById(`dataContrato-${idStr}`).value;
+                const dataContrato = formatarDataDimob(dataRaw);
+                
                 let valoresFinanceiros = "";
+                for (let i = 0; i < 12; i++) {
+                    valoresFinanceiros += formatarMoedaDimob(document.getElementById(`aluguel-${idStr}-${i}`).value);
+                    valoresFinanceiros += formatarMoedaDimob(document.getElementById(`comissao-${idStr}-${i}`).value);
+                    valoresFinanceiros += formatarMoedaDimob(document.getElementById(`irrf-${idStr}-${i}`).value);
+                }
 
-                // Valores formatados com 14 posições exatamente como no dimob_2024.txt
-                meses.forEach(mes => {
-                    valoresFinanceiros += formatarMoeda(linha[`ALUGUEL_${mes}`], 14);
-                    valoresFinanceiros += formatarMoeda(linha[`COMISSAO_${mes}`], 14);
-                    valoresFinanceiros += formatarMoeda(linha[`IRRF_${mes}`], 14);
-                });
-
-                const endereco = formatarTexto(linha['ENDERECO_IMOVEL'], 60);
-                const cep = formatarTexto(limparDocumento(linha['CEP']), 8);
-                const codMunicipio = formatarTexto(linha['COD_MUNICIPIO'] || codigoMunicipioPadrao, 4); 
+                const endereco = formatarTexto(document.getElementById(`imovelEnd-${idStr}`).value, 60);
+                const cep = formatarTexto(limparDocumento(document.getElementById(`imovelCep-${idStr}`).value), 8);
+                const codMunicipio = formatarTexto(codigoMunicipioPadrao, 4); 
                 const munVazio = " ".repeat(20);
-                const uf = formatarTexto(linha['UF'] || ufPadrao, 2);
+                const uf = formatarTexto(ufPadrao, 2);
                 const fillerR02 = " ".repeat(10);
 
                 const r02 = `R02${cnpjDeclarante}${anoBase}${sequencial}${cpfCnpjLocador}${nomeLocador}${cpfCnpjLocatario}${nomeLocatario}${numContrato}${dataContrato}${valoresFinanceiros}0U${endereco}${cep}${codMunicipio}${munVazio}${uf}${fillerR02}`;
                 
                 conteudoTxt += r02 + "\r\n"; 
+                indexArray++;
             });
 
             // TRAILER (T9)
             conteudoTxt += "T9\r\n";
 
-            // Geração via Array de Bytes (ASCII) para evitar caracteres Web ocultos
+            // GERAR E BAIXAR ARQUIVO BLINDADO
             const byteArray = new Uint8Array(conteudoTxt.length);
             for (let i = 0; i < conteudoTxt.length; i++) {
                 byteArray[i] = conteudoTxt.charCodeAt(i) & 0xFF;
@@ -271,16 +256,16 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `DIMOB_VALIDADA_${anoBase}.txt`);
+            link.setAttribute('download', `DIMOB_WEB_${anoBase}.txt`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
-            exibirMensagem('<strong>Ficheiro Gerado!</strong> Verifique a pasta de downloads.', 'sucesso');
-            // Oculta a área de preview para nova operação
-            document.getElementById('previewArea').style.display = 'none';
-            document.getElementById('uploadPlanilha').value = ''; 
+            exibirMensagem("Arquivo DIMOB gerado com sucesso! Importe no PGD.", "sucesso");
         }
+
+        // Inicializa a tela com 1 contrato vazio
+        window.onload = adicionarLocacao;
     </script>
 </body>
 </html>
